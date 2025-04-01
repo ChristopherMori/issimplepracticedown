@@ -36,3 +36,9 @@ jobs:
           git add status.json index.html
           git commit -m "Update status artifacts [skip ci]"
           git push
+
+      - name: Commit and push
+        run: |
+          git add status.json index.html
+          git commit -m "Update status artifacts [skip ci]"
+          git push origin HEAD:main
