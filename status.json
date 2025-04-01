@@ -154,5 +154,17 @@
     "recent_times": [
       0.1613168716430664
     ]
+  },
+  {
+    "current_status": "UP",
+    "last_response_time": 0.39411354064941406,
+    "extra_details": "",
+    "stable_streak": 1,
+    "degraded_streak": 0,
+    "alert_active": false,
+    "last_check_utc": "2025-04-01T22:31:16.681716Z",
+    "recent_times": [
+      0.39411354064941406
+    ]
   }
 ]
