@@ -1,13 +1,14 @@
 {
   "current_status": "UP",
-  "last_response_time": 0.14883661270141602,
+  "last_response_time": 0.4052603244781494,
   "extra_details": "",
-  "stable_streak": 2,
+  "stable_streak": 3,
   "degraded_streak": 0,
   "alert_active": false,
-  "last_check_utc": "2025-04-01T19:21:31.116547Z",
+  "last_check_utc": "2025-04-01T19:27:23.407758Z",
   "recent_times": [
     0.14323878288269043,
-    0.14883661270141602
+    0.14883661270141602,
+    0.4052603244781494
   ]
 }
