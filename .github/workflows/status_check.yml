@@ -1,17 +1,17 @@
 # GitHub Action Workflow to periodically check SimplePractice status
-# Includes permissions fix for committing changes
+# Runs every 5 minutes, includes permissions fix
 
 name: Check SimplePractice Status
 
 on:
-  # Run automatically on a schedule (every 15 minutes)
+  # Run automatically on a schedule (every 5 minutes)
   schedule:
-    - cron: '*/15 * * * *' # Runs at 0, 15, 30, and 45 minutes past the hour
+    - cron: '*/5 * * * *' # Changed from */15 to */5
 
   # Allows running this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Add this permissions block to allow the workflow to commit back to the repo
+# Permissions block to allow the workflow to commit back to the repo
 permissions:
   contents: write # Grants write permission for repository contents
 
@@ -48,7 +48,6 @@ jobs:
         with:
           commit_message: "Automated status update" # Commit message
           # Specify the files to add and commit.
-          # Adjust if your script generates different file names.
           file_pattern: "index.html status.json"
           # Optional: Add user name and email for the commit
           commit_user_name: "GitHub Action Bot"
