@@ -1,4 +1,4 @@
-# SimplePractice Status Snitch - GitHub Action Version (Syntax Fix)
+# SimplePractice Status Snitch - GitHub Action Version
 # Calculates Avg Speed, updates UI, adds estimated countdown.
 # Fixes f-string syntax error in HTML generation.
 
