@@ -46,20 +46,20 @@
         </h2>
         <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
           Checked:
-          <span id="last-checked-display">Apr 01, 2025, 07:27:23 PM UTC</span>
-          <span id="last-check-iso" style="display:none;">2025-04-01T19:27:23.407758Z</span>
+          <span id="last-checked-display">Apr 01, 2025, 07:34:29 PM UTC</span>
+          <span id="last-check-iso" style="display:none;">2025-04-01T19:34:29.981709Z</span>
         </span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
           <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-          <span id="response-time" class="font-semibold text-lg text-gray-800">0.41 s</span>
+          <span id="response-time" class="font-semibold text-lg text-gray-800">0.16 s</span>
         </div>
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
           <span class="text-gray-600 block text-xs mb-1">
             Avg. Speed (Last 3)
           </span>
-          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.23 s</span>
+          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.24 s</span>
         </div>
       </div>
       
@@ -75,26 +75,15 @@
       </p>
     </div>
 
-    <div id="history-section" class="mt-6">
-      <h3 class="text-lg font-semibold text-gray-800 mb-2">History</h3>
-      <ul id="history-list" class="text-sm text-gray-600 space-y-1">
-        <!-- Historical entries will be dynamically added here -->
-      </ul>
-    </div>
-
     <div class="text-center text-xs text-gray-400 mt-6">
-      Status as of: Apr 01, 2025, 07:27:23 PM UTC.
+      Status as of: Apr 01, 2025, 07:34:29 PM UTC.
     </div>
   </div>
 
   <script>
     const cdEl = document.getElementById('countdown-timer');
     const lastCheckEl = document.getElementById('last-check-iso');
-    const lastCheckedDisplayEl = document.getElementById('last-checked-display');
-    const historyListEl = document.getElementById('history-list');
     const intervalMs = 5 * 60 * 1000;
-    const historyLimit = 10; // Limit to the last 10 results
-    const history = []; // Array to store historical data
 
     function updateCountdown() {
       if (!lastCheckEl || !cdEl) {
@@ -123,52 +112,6 @@
       }
     }
 
-    function updateLastCheckedDisplay() {
-      if (!lastCheckEl || !lastCheckedDisplayEl) {
-        return;
-      }
-      const iso = lastCheckEl.textContent;
-      if (!iso) {
-        lastCheckedDisplayEl.textContent = "Invalid time";
-        return;
-      }
-      const localTime = new Date(iso).toLocaleString();
-      lastCheckedDisplayEl.textContent = localTime;
-
-      // Add the current check to the history
-      addToHistory(localTime);
-    }
-
-    function addToHistory(entry) {
-      // Add the new entry to the beginning of the history array
-      history.unshift(entry);
-
-      // Limit the history to the last 10 entries
-      if (history.length > historyLimit) {
-        history.pop();
-      }
-
-      // Update the history list in the DOM
-      renderHistory();
-    }
-
-    function renderHistory() {
-      if (!historyListEl) {
-        return;
-      }
-
-      // Clear the current list
-      historyListEl.innerHTML = '';
-
-      // Add each history entry to the list
-      history.forEach((entry) => {
-        const li = document.createElement('li');
-        li.textContent = entry;
-        historyListEl.appendChild(li);
-      });
-    }
-
-    updateLastCheckedDisplay();
     updateCountdown();
     setInterval(updateCountdown, 1000);
   </script>
