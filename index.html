@@ -46,20 +46,20 @@
         </h2>
         <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
           Checked:
-          <span id="last-checked-display">Apr 01, 2025, 07:39:53 PM UTC</span>
-          <span id="last-check-iso" style="display:none;">2025-04-01T19:39:53.746895Z</span>
+          <span id="last-checked-display">Apr 01, 2025, 08:30:32 PM UTC</span>
+          <span id="last-check-iso" style="display:none;">2025-04-01T20:30:32.922121Z</span>
         </span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
           <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-          <span id="response-time" class="font-semibold text-lg text-gray-800">0.54 s</span>
+          <span id="response-time" class="font-semibold text-lg text-gray-800">0.46 s</span>
         </div>
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
           <span class="text-gray-600 block text-xs mb-1">
-            Avg. Speed (Last 3)
+            Avg. Speed (Last 1)
           </span>
-          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.37 s</span>
+          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.46 s</span>
         </div>
       </div>
       
@@ -75,43 +75,15 @@
       </p>
     </div>
 
-    <div id="history-section" class="mt-6">
-      <h3 class="text-lg font-medium text-gray-800 mb-2">Check History</h3>
-      <ul id="history-list" class="text-sm text-gray-600 space-y-1">
-        <!-- History entries will be dynamically added here -->
-      </ul>
-    </div>
-
     <div class="text-center text-xs text-gray-400 mt-6">
-      Status as of: Apr 01, 2025, 07:39:53 PM UTC.
+      Status as of: Apr 01, 2025, 08:30:32 PM UTC.
     </div>
   </div>
 
   <script>
     const cdEl = document.getElementById('countdown-timer');
     const lastCheckEl = document.getElementById('last-check-iso');
-    const lastCheckedDisplayEl = document.getElementById('last-checked-display');
-    const statusAsOfEl = document.querySelector('.text-center.text-xs.text-gray-400.mt-6');
     const intervalMs = 5 * 60 * 1000;
-    const historyLimit = 10;
-
-    async function loadHistoryFromJson() {
-      try {
-        const response = await fetch('/status.json');
-        if (!response.ok) {
-          console.error('Failed to fetch history from status.json');
-          return;
-        }
-        const data = await response.json();
-        const entries = data.slice(0, historyLimit);
-        entries.forEach((entry) => {
-          const localTime = new Date(entry.timestamp).toLocaleString();
-          addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
-        });
-      } catch (error) {
-        console.error('Error loading history:', error);
-      }
-    }
 
     function updateCountdown() {
       if (!lastCheckEl || !cdEl) {
@@ -134,64 +106,12 @@
       if (diff <= 0) {
         cdEl.textContent = "Soon...";
       } else {
-        const mins = Math.floor(diff / (1000 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const secs = Math.floor((diff % (1000 * 60)) / 1000);
         cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
       }
     }
 
-    function updateLastCheckedDisplay() {
-      if (!lastCheckEl || !lastCheckedDisplayEl) {
-        return;
-      }
-      const iso = lastCheckEl.textContent;
-      if (!iso) {
-        lastCheckedDisplayEl.textContent = "Invalid time";
-        return;
-      }
-      const localTime = new Date(iso).toLocaleString();
-      lastCheckedDisplayEl.textContent = localTime;
-
-      // Add the current check to the history
-      addToHistory(`Checked at: ${localTime}`);
-    }
-
-    function updateStatusAsOf() {
-      if (!statusAsOfEl) {
-        return;
-      }
-      const iso = lastCheckEl.textContent;
-      if (!iso) {
-        statusAsOfEl.textContent = "Status as of: Invalid time";
-        return;
-      }
-      const localTime = new Date(iso).toLocaleString();
-      statusAsOfEl.textContent = `Status as of: ${localTime}`;
-    }
-
-    function addToHistory(entry) {
-      history.unshift(entry);
-      if (history.length > historyLimit) {
-        history.pop();
-      }
-      renderHistory();
-    }
-
-    function renderHistory() {
-      if (!historyListEl) {
-        return;
-      }
-      historyListEl.innerHTML = '';
-      history.forEach((entry) => {
-        const li = document.createElement('li');
-        li.textContent = entry;
-        historyListEl.appendChild(li);
-      });
-    }
-
-    loadHistoryFromJson();
-    updateLastCheckedDisplay();
-    updateStatusAsOf();
     updateCountdown();
     setInterval(updateCountdown, 1000);
   </script>
