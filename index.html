@@ -75,6 +75,13 @@
       </p>
     </div>
 
+    <div id="history-section" class="mt-6">
+      <h3 class="text-lg font-semibold text-gray-800 mb-2">History</h3>
+      <ul id="history-list" class="text-sm text-gray-600 space-y-1">
+        <!-- Historical entries will be dynamically added here -->
+      </ul>
+    </div>
+
     <div class="text-center text-xs text-gray-400 mt-6">
       Status as of: Apr 01, 2025, 07:27:23 PM UTC.
     </div>
@@ -83,7 +90,11 @@
   <script>
     const cdEl = document.getElementById('countdown-timer');
     const lastCheckEl = document.getElementById('last-check-iso');
+    const lastCheckedDisplayEl = document.getElementById('last-checked-display');
+    const historyListEl = document.getElementById('history-list');
     const intervalMs = 5 * 60 * 1000;
+    const historyLimit = 10; // Limit to the last 10 results
+    const history = []; // Array to store historical data
 
     function updateCountdown() {
       if (!lastCheckEl || !cdEl) {
@@ -112,6 +123,52 @@
       }
     }
 
+    function updateLastCheckedDisplay() {
+      if (!lastCheckEl || !lastCheckedDisplayEl) {
+        return;
+      }
+      const iso = lastCheckEl.textContent;
+      if (!iso) {
+        lastCheckedDisplayEl.textContent = "Invalid time";
+        return;
+      }
+      const localTime = new Date(iso).toLocaleString();
+      lastCheckedDisplayEl.textContent = localTime;
+
+      // Add the current check to the history
+      addToHistory(localTime);
+    }
+
+    function addToHistory(entry) {
+      // Add the new entry to the beginning of the history array
+      history.unshift(entry);
+
+      // Limit the history to the last 10 entries
+      if (history.length > historyLimit) {
+        history.pop();
+      }
+
+      // Update the history list in the DOM
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (!historyListEl) {
+        return;
+      }
+
+      // Clear the current list
+      historyListEl.innerHTML = '';
+
+      // Add each history entry to the list
+      history.forEach((entry) => {
+        const li = document.createElement('li');
+        li.textContent = entry;
+        historyListEl.appendChild(li);
+      });
+    }
+
+    updateLastCheckedDisplay();
     updateCountdown();
     setInterval(updateCountdown, 1000);
   </script>
