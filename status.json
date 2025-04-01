@@ -10,5 +10,17 @@
     "recent_times": [
       0.4559953212738037
     ]
+  },
+  {
+    "current_status": "UP",
+    "last_response_time": 0.5197548866271973,
+    "extra_details": "",
+    "stable_streak": 1,
+    "degraded_streak": 0,
+    "alert_active": false,
+    "last_check_utc": "2025-04-01T20:40:40.302919Z",
+    "recent_times": [
+      0.5197548866271973
+    ]
   }
 ]
