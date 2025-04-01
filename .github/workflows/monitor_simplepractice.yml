@@ -2,7 +2,7 @@ name: "SimplePractice Monitor"
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Runs every 5 minutes; adjust to your preference
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -26,25 +26,13 @@ jobs:
         run: |
           python monitor_simplepractice.py
 
-      # --- Optional: If you want to see these files in the Action's artifacts:
-      #
-      # - name: Upload status artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: status-files
-      #     path: |
-      #       status.json
-      #       index.html
-      #
-      # --- Optional: If you want to commit them back to your repo:
-      #
-      # - name: Configure Git
-      #   run: |
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #
-      # - name: Commit changes
-      #   run: |
-      #     git add status.json index.html
-      #     git commit -m "Update status artifacts [skip ci]"
-      #     git push
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push
+        run: |
+          git add status.json index.html
+          git commit -m "Update status artifacts [skip ci]"
+          git push
