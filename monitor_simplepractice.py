@@ -30,7 +30,7 @@ SLOW_THRESHOLD = 2.0              # threshold above which a response is consider
 STATE_DB_FILE = "status.json"     # local JSON-based "database" of prior states
 OUTPUT_HTML = "index.html"        # output file showing the current status
 CHECK_INTERVAL_MIN = 5            # used in the countdown display (not the actual schedule)
-MAX_TIMES_TRACKED = 3             # number of past response times we keep
+MAX_TIMES_TRACKED = 100           # Define the maximum number of history entries to track
 
 # =====================================
 # === STATUS CATEGORIES & UI INFO ===
@@ -80,6 +80,9 @@ def load_state(filename: str) -> dict:
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
+            # Ensure the data is a dictionary
+            if not isinstance(data, dict):
+                raise ValueError("State file does not contain a dictionary")
             # Ensure all expected keys exist
             data.setdefault('current_status', 'UNKNOWN')
             data.setdefault('stable_streak', 0)
@@ -93,7 +96,9 @@ def load_state(filename: str) -> dict:
                 times = []
             data['recent_times'] = times[-MAX_TIMES_TRACKED:]
             return data
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        # Log the error and return an empty dictionary
+        print(f"[ERROR] Failed to load state: {e}")
         return {
             'current_status': 'UNKNOWN',
             'stable_streak': 0,
@@ -117,6 +122,25 @@ def save_state(filename: str, state: dict):
             json.dump(state, f, indent=2)
     except OSError as e:
         print(f"[ERROR] Could not save state to {filename}. Reason: {e}")
+
+
+def save_history(entry: dict, filename: str = "history.json"):
+    """
+    Appends a new entry to the history file.
+    """
+    try:
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = []
+        else:
+            history = []
+        history.insert(0, entry)  # Add the new entry to the beginning
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(history[:MAX_TIMES_TRACKED], f, indent=2)
+    except OSError as e:
+        print(f"[ERROR] Could not save history to {filename}. Reason: {e}")
 
 
 def calc_average_speed(times_list: list) -> float:
@@ -380,6 +404,14 @@ def run_monitor():
         'recent_times': recent_times,
     }
     save_state(STATE_DB_FILE, new_state)
+
+    # Save the history entry
+    save_history({
+        "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        "status": new_status
+    })
+
+    # Generate the HTML
     generate_status_html(OUTPUT_HTML, new_state)
 
     print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}")

@@ -90,20 +90,20 @@
   <script>
     const cdEl = document.getElementById('countdown-timer');
     const lastCheckEl = document.getElementById('last-check-iso');
+    const lastCheckedDisplayEl = document.getElementById('last-checked-display');
+    const statusAsOfEl = document.querySelector('.text-center.text-xs.text-gray-400.mt-6');
     const intervalMs = 5 * 60 * 1000;
-    const historyLimit = 10; // Limit to the last 10 results
-    const history = []; // Array to store historical data
-    const statusJsonUrl = '/status.json'; // Path to the JSON file containing historical data
+    const historyLimit = 10;
 
     async function loadHistoryFromJson() {
       try {
-        const response = await fetch(statusJsonUrl);
+        const response = await fetch('/status.json');
         if (!response.ok) {
           console.error('Failed to fetch history from status.json');
           return;
         }
         const data = await response.json();
-        const entries = data.slice(0, historyLimit); // Get the last 10 entries
+        const entries = data.slice(0, historyLimit);
         entries.forEach((entry) => {
           const localTime = new Date(entry.timestamp).toLocaleString();
           addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
@@ -134,7 +134,7 @@
       if (diff <= 0) {
         cdEl.textContent = "Soon...";
       } else {
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const mins = Math.floor(diff / (1000 * 60));
         const secs = Math.floor((diff % (1000 * 60)) / 1000);
         cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
       }
@@ -156,16 +156,24 @@
       addToHistory(`Checked at: ${localTime}`);
     }
 
-    function addToHistory(entry) {
-      // Add the new entry to the beginning of the history array
-      history.unshift(entry);
+    function updateStatusAsOf() {
+      if (!statusAsOfEl) {
+        return;
+      }
+      const iso = lastCheckEl.textContent;
+      if (!iso) {
+        statusAsOfEl.textContent = "Status as of: Invalid time";
+        return;
+      }
+      const localTime = new Date(iso).toLocaleString();
+      statusAsOfEl.textContent = `Status as of: ${localTime}`;
+    }
 
-      // Limit the history to the last 10 entries
+    function addToHistory(entry) {
+      history.unshift(entry);
       if (history.length > historyLimit) {
         history.pop();
       }
-
-      // Update the history list in the DOM
       renderHistory();
     }
 
@@ -173,11 +181,7 @@
       if (!historyListEl) {
         return;
       }
-
-      // Clear the current list
       historyListEl.innerHTML = '';
-
-      // Add each history entry to the list
       history.forEach((entry) => {
         const li = document.createElement('li');
         li.textContent = entry;
@@ -185,10 +189,9 @@
       });
     }
 
-    // Load history from status.json on page load
     loadHistoryFromJson();
-
     updateLastCheckedDisplay();
+    updateStatusAsOf();
     updateCountdown();
     setInterval(updateCountdown, 1000);
   </script>

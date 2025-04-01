@@ -2,7 +2,7 @@
 const historyListEl = document.getElementById('history-list'); // Reference the history list element
 const historyLimit = 10; // Limit to the last 10 results
 const history = []; // Array to store historical data
-const statusJsonUrl = '/status.json'; // Path to the JSON file containing historical data
+const statusJsonUrl = '/history.json'; // Path to the JSON file containing historical data
 
 async function loadHistoryFromJson() {
   try {

@@ -1,14 +1,10 @@
-[
-  {
-    "timestamp": "2025-04-01T19:27:23.407758Z",
-    "status": "All Good!"
-  },
-  {
-    "timestamp": "2025-04-01T19:22:23.407758Z",
-    "status": "All Good!"
-  },
-  {
-    "timestamp": "2025-04-01T19:17:23.407758Z",
-    "status": "Minor Issues"
-  }
-]
+{
+  "current_status": "UNKNOWN",
+  "stable_streak": 0,
+  "degraded_streak": 0,
+  "alert_active": false,
+  "last_check_utc": null,
+  "last_response_time": 0,
+  "extra_details": "",
+  "recent_times": []
+}
