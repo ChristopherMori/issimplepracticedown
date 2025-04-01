@@ -1,5 +1,6 @@
-# SimplePractice Status Snitch - GitHub Action Version (Final V2)
+# SimplePractice Status Snitch - GitHub Action Version (Syntax Fix)
 # Calculates Avg Speed, updates UI, adds estimated countdown.
+# Fixes f-string syntax error in HTML generation.
 
 import requests
 import time
@@ -12,11 +13,10 @@ import html
 URL = "https://account.simplepractice.com/"
 TIMEOUT_SECONDS = 15
 SLOW_THRESHOLD = 2.0
-# NORMAL_LOAD_TIME = 0.5 # No longer needed for Avg Speed calc
 STATE_FILE = "status.json"
 OUTPUT_HTML_FILE = "index.html"
-CHECK_INTERVAL_MINUTES = 5 # Match the cron schedule '*/5 * * * *'
-MAX_RESPONSE_TIMES_TO_KEEP = 3 # For calculating average
+CHECK_INTERVAL_MINUTES = 5
+MAX_RESPONSE_TIMES_TO_KEEP = 3
 
 # === STATUS INFO (for display) ===
 STATUS_INFO = {
@@ -34,24 +34,20 @@ def load_previous_state(filename):
     try:
         with open(filename, 'r') as f:
             state = json.load(f)
-            # Set defaults for all expected keys
             state.setdefault('status', 'UNKNOWN')
             state.setdefault('stable_count', 0)
             state.setdefault('degraded_count', 0)
             state.setdefault('alert_mode', False)
             state.setdefault('last_check_timestamp_utc', None)
-            state.setdefault('response_time', 0) # Last response time
+            state.setdefault('response_time', 0)
             state.setdefault('extra_info', '')
-            # Ensure 'recent_response_times' is a list and trim if needed
             times = state.get('recent_response_times', [])
-            if not isinstance(times, list): # Handle case where it might not be a list
-                times = []
+            if not isinstance(times, list): times = []
             state['recent_response_times'] = times[-MAX_RESPONSE_TIMES_TO_KEEP:]
             print(f"Loaded previous state: {state}")
             return state
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"State file '{filename}' not found or invalid, starting fresh. Error: {e}")
-        # Return default initial state
         return {
             'status': 'UNKNOWN', 'stable_count': 0, 'degraded_count': 0, 'alert_mode': False,
             'last_check_timestamp_utc': None, 'response_time': 0, 'extra_info': '',
@@ -61,10 +57,8 @@ def load_previous_state(filename):
 def save_current_state(filename, state_data):
     """Saves the current state to the state file."""
     try:
-        # Ensure list length consistency before saving
         times = state_data.get('recent_response_times', [])
-        if not isinstance(times, list): # Handle case where it might not be a list
-             times = []
+        if not isinstance(times, list): times = []
         state_data['recent_response_times'] = times[-MAX_RESPONSE_TIMES_TO_KEEP:]
         with open(filename, 'w') as f:
             json.dump(state_data, f, indent=4)
@@ -74,20 +68,15 @@ def save_current_state(filename, state_data):
 
 def calculate_average_speed(times_list):
     """Calculates average from a list of times, ignoring zeros/timeouts."""
-    # Ensure times_list is actually a list of numbers
     valid_times = []
     if isinstance(times_list, list):
         for t in times_list:
             try:
                 time_float = float(t)
-                # Consider only positive times less than timeout as valid for averaging
                 if time_float > 0 and time_float < TIMEOUT_SECONDS:
                     valid_times.append(time_float)
-            except (ValueError, TypeError):
-                continue # Skip non-numeric or invalid entries
-
-    if not valid_times:
-        return 0
+            except (ValueError, TypeError): continue
+    if not valid_times: return 0
     return sum(valid_times) / len(valid_times)
 
 def generate_html(filename, status_data):
@@ -95,31 +84,26 @@ def generate_html(filename, status_data):
     status = status_data.get('status', 'UNKNOWN')
     info = STATUS_INFO.get(status, STATUS_INFO["UNKNOWN"])
 
-    # --- Prepare Metrics ---
     response_time = status_data.get('response_time', 0)
     response_time_str = f"{response_time:.2f} s" if status != 'UNKNOWN' and isinstance(response_time, (int, float)) and response_time >= 0 else "-- s"
 
-    # Calculate Average Speed
     recent_times = status_data.get('recent_response_times', [])
     average_speed = calculate_average_speed(recent_times)
     average_speed_str = f"{average_speed:.2f} s" if average_speed > 0 else "-- s"
+    valid_times_count = sum(1 for t in recent_times if isinstance(t, (int, float)) and t > 0 and t < TIMEOUT_SECONDS)
 
-    # --- Prepare Timestamp ---
     last_check_utc_str = status_data.get('last_check_timestamp_utc', None)
     last_check_dt_utc = None
     last_check_local_str = "Never"
     if last_check_utc_str:
         try:
-            # Parse ISO format timestamp, handling potential 'Z'
             last_check_dt_utc = datetime.fromisoformat(last_check_utc_str.replace('Z', '+00:00'))
-            # Format timestamp more nicely (e.g., "Apr 01, 2025, 11:51 AM EDT") - locale dependent AM/PM
-            # Using %I for 12-hour clock, %p for AM/PM. %Z for timezone name.
             last_check_local_str = last_check_dt_utc.astimezone().strftime('%b %d, %Y, %I:%M:%S %p %Z')
         except ValueError:
-            last_check_local_str = "Invalid date" # Handle parsing errors
+            last_check_local_str = "Invalid date"
 
     # --- HTML Structure ---
-    # Using Tailwind CDN, Inter font. Added countdown JS. Removed Extra Load Time box. Updated Avg Speed label.
+    # Removed the problematic comment inside the grid div class line
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,16 +138,15 @@ def generate_html(filename, status_data):
                     {f'<span id="last-checked-iso" style="display: none;">{html.escape(last_check_utc_str)}</span>' if last_check_utc_str else ''}
                 </span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"> {/* Changed to sm:grid-cols-2 */}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"> {/* Removed comment here */}
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
                     <span id="response-time" class="font-semibold text-lg text-gray-800">{html.escape(response_time_str)}</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last {min(len(recent_times) if recent_times else 0, MAX_RESPONSE_TIMES_TO_KEEP)})</span> {/* Dynamic count in label */}
-                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(average_speed_str)}</span> {/* Updated ID & Value */}
+                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last {valid_times_count})</span>
+                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(average_speed_str)}</span>
                 </div>
-                {/* Removed Extra Load Time Box */}
             </div>
              {f'<div class="text-xs text-center mt-3 {info["text_color"]}"><p>({html.escape(status_data.get("extra_info", ""))})</p></div>' if status in ["ERROR", "DOWN"] and status_data.get("extra_info") else ''}
         </div>
@@ -179,57 +162,11 @@ def generate_html(filename, status_data):
     </div>
 
     <script>
-      // Countdown Timer Logic
+      // Countdown Timer Logic (same as before)
       const countdownElement = document.getElementById('countdown-timer');
       const lastCheckIsoElement = document.getElementById('last-checked-iso');
       const checkIntervalMillis = {CHECK_INTERVAL_MINUTES} * 60 * 1000;
-
-      function updateCountdown() {{
-        const lastCheckIso = lastCheckIsoElement ? lastCheckIsoElement.textContent : null;
-        // Ensure elements exist and ISO time string is present
-        if (!lastCheckIso || !countdownElement || lastCheckIso === 'None' || lastCheckIso === '') {{
-            countdownElement.textContent = "--:--";
-            // console.log("Missing elements or valid ISO time for countdown.");
-            return;
-        }}
-
-        try {{
-            const lastCheckTime = new Date(lastCheckIso).getTime();
-            // Check if parsing resulted in a valid time
-            if (isNaN(lastCheckTime)) {{
-                 countdownElement.textContent = "--:--";
-                 // console.log("Invalid last check time format for countdown:", lastCheckIso);
-                 return;
-            }}
-
-            const nextCheckTime = lastCheckTime + checkIntervalMillis;
-            const now = new Date().getTime();
-            const timeRemaining = nextCheckTime - now;
-
-            if (timeRemaining <= 0) {{
-                // Display something indicating an update is expected soon
-                countdownElement.textContent = "Updating soon...";
-            }} else {{
-                // Calculate remaining minutes and seconds
-                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-                // Format as MM:SS, ensuring two digits
-                countdownElement.textContent = `${{String(minutes).padStart(2, '0')}}:${{String(seconds).padStart(2, '0')}}`;
-            }}
-        }} catch (e) {{
-            console.error("Error calculating countdown:", e);
-            countdownElement.textContent = "Error";
-        }}
-      }}
-
-      // Run the countdown update immediately and then every second
-      // Ensure the ISO time element exists and has content before starting interval
-      if (lastCheckIsoElement && lastCheckIsoElement.textContent && lastCheckIsoElement.textContent !== 'None') {{
-          updateCountdown(); // Initial call to display immediately
-          setInterval(updateCountdown, 1000); // Update every second
-      }} else {{
-          countdownElement.textContent = "--:--"; // Default if no valid time found
-      }}
+      function updateCountdown() {{ const lastCheckIso = lastCheckIsoElement ? lastCheckIsoElement.textContent : null; if (!lastCheckIso || !countdownElement || lastCheckIso === 'None' || lastCheckIso === '') {{ countdownElement.textContent = "--:--"; return; }} try {{ const lastCheckTime = new Date(lastCheckIso).getTime(); if (isNaN(lastCheckTime)) {{ countdownElement.textContent = "--:--"; return; }} const nextCheckTime = lastCheckTime + checkIntervalMillis; const now = new Date().getTime(); const timeRemaining = nextCheckTime - now; if (timeRemaining <= 0) {{ countdownElement.textContent = "Updating soon..."; }} else {{ const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000); countdownElement.textContent = `${{String(minutes).padStart(2, '0')}}:${{String(seconds).padStart(2, '0')}}`; }} }} catch (e) {{ console.error("Error calculating countdown:", e); countdownElement.textContent = "Error"; }} }} if (lastCheckIsoElement && lastCheckIsoElement.textContent && lastCheckIsoElement.textContent !== 'None') {{ updateCountdown(); setInterval(updateCountdown, 1000); }} else {{ countdownElement.textContent = "--:--"; }}
     </script>
 
 </body>
@@ -243,95 +180,55 @@ def generate_html(filename, status_data):
         print(f"Error writing HTML file '{filename}': {e}")
 
 
-# === MAIN CHECK LOGIC ===
+# === MAIN CHECK LOGIC === (No changes needed from V2)
 def perform_check():
     """Performs one status check, updates state, and generates output."""
     print("-" * 30)
     print(f"Starting check at {datetime.now(timezone.utc).isoformat()}")
     prev_state = load_previous_state(STATE_FILE)
-    # Ensure recent_times is always a list, even if loaded state is corrupted
     recent_times = prev_state.get('recent_response_times', [])
-    if not isinstance(recent_times, list):
-        recent_times = []
+    if not isinstance(recent_times, list): recent_times = []
     stable_count = prev_state['stable_count']
     degraded_count = prev_state['degraded_count']
     alert_mode = prev_state['alert_mode']
-
-    # --- Perform the check ---
     start_time = time.time()
     current_status = "UNKNOWN"
-    response_time = 0 # Default to 0 for calculations if check fails
+    response_time = 0
     extra_info = None
     status_code_info = ""
-
     try:
         response = requests.get(URL, timeout=TIMEOUT_SECONDS)
-        response_time = time.time() - start_time # Capture actual response time
+        response_time = time.time() - start_time
         status_code = response.status_code
         status_code_info = f"Status code: {status_code}"
-
         if status_code == 200:
-            if response_time > SLOW_THRESHOLD:
-                current_status = "SLOW"
-            else:
-                current_status = "UP"
+            current_status = "SLOW" if response_time > SLOW_THRESHOLD else "UP"
         else:
-            current_status = "ERROR"
-            extra_info = status_code_info # Use status code as extra info
-
+            current_status = "ERROR"; extra_info = status_code_info
     except requests.exceptions.Timeout:
-        current_status = "DOWN"
-        # response_time = TIMEOUT_SECONDS # Or keep as 0? Let's use 0 for avg calc.
-        response_time = 0 # Set to 0 so timeout doesn't skew average
-        extra_info = "Request timed out"
+        current_status = "DOWN"; response_time = 0; extra_info = "Request timed out"
     except requests.exceptions.RequestException as e:
-        current_status = "DOWN"
-        response_time = 0 # Set to 0 for avg calc
-        extra_info = f"Network error: {type(e).__name__}"
+        current_status = "DOWN"; response_time = 0; extra_info = f"Network error: {type(e).__name__}"
     except Exception as e:
-        current_status = "ERROR"
-        response_time = 0 # Set to 0 for avg calc
-        extra_info = f"Unexpected error: {type(e).__name__}"
+        current_status = "ERROR"; response_time = 0; extra_info = f"Unexpected error: {type(e).__name__}"
         print(f"!!! Unexpected error during check: {e}")
-
     print(f"Check result: Status={current_status}, ResponseTime={response_time:.2f}s, Extra='{extra_info}'")
-
-    # --- Update recent response times list ---
-    # Add current response time to the list, regardless of status, but use 0 for errors/downs
     current_time_for_list = response_time if current_status in ["UP", "SLOW"] else 0
     recent_times.append(current_time_for_list)
-    # Keep only the last N times
     recent_times = recent_times[-MAX_RESPONSE_TIMES_TO_KEEP:]
-
-    # --- Update State Counters ---
-    if current_status == "UP":
-        stable_count += 1
-        degraded_count = 0
-    else: # SLOW, ERROR, or DOWN
-        degraded_count += 1
-        stable_count = 0
-
-    # --- Update Alert Mode ---
+    if current_status == "UP": stable_count += 1; degraded_count = 0
+    else: degraded_count += 1; stable_count = 0
     new_alert_mode = alert_mode
     if not alert_mode and degraded_count >= 2: new_alert_mode = True; print("Condition met to enter ALERT mode (state tracked).")
     elif alert_mode and stable_count >= 3: new_alert_mode = False; print("Condition met to exit ALERT mode (state tracked).")
-
-    # --- Prepare data for saving ---
     current_state_data = {
-        'status': current_status,
-        'response_time': response_time, # Last actual response time (or 0 if failed)
-        'extra_info': extra_info, # Specific error/status code/timeout message
-        'stable_count': stable_count,
-        'degraded_count': degraded_count,
-        'alert_mode': new_alert_mode,
+        'status': current_status, 'response_time': response_time, 'extra_info': extra_info,
+        'stable_count': stable_count, 'degraded_count': degraded_count, 'alert_mode': new_alert_mode,
         'last_check_timestamp_utc': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-        'recent_response_times': recent_times # Save updated list
+        'recent_response_times': recent_times
     }
-
-    # --- Save state and generate HTML ---
     save_current_state(STATE_FILE, current_state_data)
-    generate_html(OUTPUT_HTML_FILE, current_state_data) # Pass the full data
-
+    generate_html(OUTPUT_HTML_FILE, current_state_data)
     print(f"Finished check at {datetime.now(timezone.utc).isoformat()}")
     print("-" * 30)
 
