@@ -1,8 +1,11 @@
 name: "SimplePractice Monitor"
 
 on:
+  # Runs every 5 minutes. Adjust as desired.
   schedule:
     - cron: "*/5 * * * *"
+
+  # Allows you to run the workflow manually from the "Actions" tab
   workflow_dispatch:
 
 jobs:
@@ -12,33 +15,35 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
         with:
-          python-version: "3.x"
+          # Pull the full history to allow rebasing/pushing
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Pull latest commits
+        run: |
+          # Ensure we're on main, then rebase from remote
+          git checkout main
+          git pull --rebase origin main
 
       - name: Install dependencies
         run: |
           pip install requests
 
-      - name: Run SimplePractice Monitor
+      - name: Run the SimplePractice Monitor
         run: |
           python monitor_simplepractice.py
 
-      - name: Configure git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit and push
+      - name: Stage and commit
         run: |
           git add status.json index.html
-          git commit -m "Update status artifacts [skip ci]"
-          git push
+          git commit -m "Update status artifacts [skip ci]" || echo "No changes to commit"
 
-      - name: Commit and push
+      - name: Push changes
         run: |
-          git add status.json index.html
-          git commit -m "Update status artifacts [skip ci]"
+          # Push the newly committed changes back to main
           git push origin HEAD:main
