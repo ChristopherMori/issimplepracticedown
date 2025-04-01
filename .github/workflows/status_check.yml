@@ -16,37 +16,44 @@ permissions:
 
 jobs:
   check_status:
-    runs-on: ubuntu-latest # Use the latest available runner
+    # Use the latest available GitHub-hosted runner
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the repository code
+      # Step 1: Check out the repository code
+      # This makes your repository's code available to the workflow
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Set up Python environment
+      # Step 2: Set up Python environment
+      # Installs the specified version of Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Specify desired Python version
+          python-version: '3.11' # You can adjust this version if needed
 
-      # 3. Install dependencies (only 'requests' needed for this script)
+      # Step 3: Install dependencies
+      # Installs the 'requests' library needed by the Python script
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
-      # 4. Run the Python status check script
-      #    This script will generate/update index.html and status.json
+      # Step 4: Run the Python status check script
+      # Executes your script which performs the check and generates output files
       - name: Run status check script
-        run: python check_status.py # Make sure your script is named check_status.py
+        run: python check_status.py # Assumes your script is named check_status.py
 
-      # 5. Commit and push the updated index.html and status.json
-      #    Uses a dedicated action to simplify committing within a workflow
+      # Step 5: Commit and push the updated index.html and status.json
+      # Uses a dedicated action to automatically commit changes if detected
       - name: Commit status files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Automated status update" # Commit message
-          file_pattern: "index.html status.json" # Files to commit
+          # Message for the commit
+          commit_message: "Automated status update"
+          # Files to check for changes and commit if changed
+          file_pattern: "index.html status.json"
+          # Author details for the commit (uses a generic bot identity)
           commit_user_name: "GitHub Action Bot"
           commit_user_email: "actions@github.com"
 
