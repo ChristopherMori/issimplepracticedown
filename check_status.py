@@ -1,5 +1,6 @@
 # SimplePractice Status Snitch - GitHub Action Version
 # Generates an index.html styled with Tailwind CSS
+# Includes a link button to manually trigger the Action workflow
 
 import requests
 import time
@@ -16,15 +17,19 @@ NORMAL_LOAD_TIME = 0.5
 STATE_FILE = "status.json" # File to store status between runs
 OUTPUT_HTML_FILE = "index.html" # HTML file to be served by GitHub Pages
 
+# !!! IMPORTANT: Replace with the URL to your repository's Actions tab !!!
+# Example: "https://github.com/YourUsername/YourRepoName/actions/workflows/status_check.yml"
+REPO_ACTIONS_URL = "YOUR_REPO_URL_HERE/actions/workflows/status_check.yml"
+
+
 # === STATUS INFO (for display) ===
-# Added background classes for Tailwind
 STATUS_INFO = {
     "UP": {"emoji": "✅", "text": "All Good!", "card_bg_class": "bg-green-100", "text_color": "text-green-700"},
     "SLOW": {"emoji": "🐢", "text": "A Bit Slow...", "card_bg_class": "bg-yellow-100", "text_color": "text-yellow-700"},
     "ERROR": {"emoji": "⚠️", "text": "Uh Oh! Error!", "card_bg_class": "bg-orange-100", "text_color": "text-orange-700"},
     "DOWN": {"emoji": "💔", "text": "It's Down!", "card_bg_class": "bg-red-100", "text_color": "text-red-700"},
     "UNKNOWN": {"emoji": "❓", "text": "Unknown", "card_bg_class": "bg-gray-100", "text_color": "text-gray-700"},
-    "CHECKING": {"emoji": "👀", "text": "Checking...", "card_bg_class": "bg-blue-100", "text_color": "text-blue-700"} # Added for consistency
+    "CHECKING": {"emoji": "👀", "text": "Checking...", "card_bg_class": "bg-blue-100", "text_color": "text-blue-700"}
 }
 
 # === HELPER FUNCTIONS ===
@@ -39,8 +44,8 @@ def load_previous_state(filename):
             state.setdefault('degraded_count', 0)
             state.setdefault('alert_mode', False)
             state.setdefault('last_check_timestamp_utc', None)
-            state.setdefault('response_time', 0) # Ensure these exist
-            state.setdefault('extra_info', '') # Ensure these exist
+            state.setdefault('response_time', 0)
+            state.setdefault('extra_info', '')
             print(f"Loaded previous state: {state}")
             return state
     except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -88,37 +93,19 @@ def generate_html(filename, status_data):
     last_check_local_str = last_check_dt_utc.astimezone().strftime('%Y-%m-%d %H:%M:%S %Z') if last_check_dt_utc else "Never"
 
     # --- HTML Structure using Tailwind ---
-    # Note: Using f-string for simplicity. For more complex HTML, a templating engine might be better.
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SimplePractice Status Snitch ✨</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://rsms.me/">
+    <script src="https://cdn.tailwindcss.com"></script> <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <style>
-        /* Basic styles */
-        body {{
-            font-family: 'Inter', sans-serif;
-        }}
-         /* Custom animation for pulsing - apply if needed via class */
-        @keyframes pulse-bg {{
-            0%, 100% {{ opacity: 1; }}
-            50% {{ opacity: 0.7; }}
-        }}
-        .animate-pulse-bg {{
-            animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }}
-        /* Ensure emojis are sized nicely */
-        .status-emoji {{
-            font-size: 1.5rem; /* Larger emoji */
-            line-height: 1;
-            margin-right: 0.5rem; /* mr-2 */
-            display: inline-block;
-            vertical-align: middle;
-        }}
+        body {{ font-family: 'Inter', sans-serif; }}
+        @keyframes pulse-bg {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.7; }} }}
+        .animate-pulse-bg {{ animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }}
+        .status-emoji {{ font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }}
     </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
@@ -129,13 +116,10 @@ def generate_html(filename, status_data):
         </header>
 
         <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 {info['card_bg_class']} {'animate-pulse-bg' if status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-medium flex items-center {info['text_color']}">
-                    <span class="status-emoji">{info['emoji']}</span>
+            <div class="flex items-center justify-between mb-4 flex-wrap"> <h2 class="text-xl font-medium flex items-center {info['text_color']} mb-2 sm:mb-0"> <span class="status-emoji">{info['emoji']}</span>
                     <span>How's it doing?</span> <span id="status-text" class="ml-2 font-semibold">{html.escape(info['text'])}</span>
                 </h2>
-                <span id="last-checked" class="text-xs text-gray-500">Checked: {html.escape(last_check_local_str)}</span>
-            </div>
+                <span id="last-checked" class="text-xs text-gray-500 w-full text-right sm:w-auto">Checked: {html.escape(last_check_local_str)}</span> </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed</span>
@@ -151,6 +135,16 @@ def generate_html(filename, status_data):
                 </div>
             </div>
              {f'<div class="text-xs text-center mt-3 {info["text_color"]}"><p>({html.escape(status_data.get("extra_info", ""))})</p></div>' if status in ["ERROR", "DOWN"] and status_data.get("extra_info") else ''}
+        </div>
+
+        <div class="text-center mt-6">
+            <a href="{html.escape(REPO_ACTIONS_URL)}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow transition duration-150 ease-in-out text-sm">
+                Trigger Manual Check (via GitHub Actions)
+            </a>
+            <p class="text-xs text-gray-500 mt-2">(Requires repository access)</p>
         </div>
 
         <div class="text-center text-xs text-gray-400 mt-6">
@@ -170,40 +164,33 @@ def generate_html(filename, status_data):
 
 
 # === MAIN CHECK LOGIC ===
+# (No changes needed in perform_check, load_previous_state, or save_current_state functions)
 def perform_check():
     """Performs one status check, updates state, and generates output."""
     print("-" * 30)
     print(f"Starting check at {datetime.now(timezone.utc).isoformat()}")
-
-    # Load previous state
     prev_state = load_previous_state(STATE_FILE)
     stable_count = prev_state['stable_count']
     degraded_count = prev_state['degraded_count']
     alert_mode = prev_state['alert_mode']
-
-    # --- Perform the check ---
     start_time = time.time()
     current_status = "UNKNOWN"
     response_time = 0
     extra_info = None
-
     try:
         response = requests.get(URL, timeout=TIMEOUT_SECONDS)
         response_time = time.time() - start_time
         status_code = response.status_code
-
         if status_code == 200:
             if response_time > SLOW_THRESHOLD:
                 current_status = "SLOW"
                 extra_time = max(0, response_time - NORMAL_LOAD_TIME)
-                # Keep extra_info simple for display in HTML
                 extra_info = f"+{extra_time:.1f}s extra"
             else:
                 current_status = "UP"
         else:
             current_status = "ERROR"
             extra_info = f"Status code: {status_code}"
-
     except requests.exceptions.Timeout:
         current_status = "DOWN"
         response_time = TIMEOUT_SECONDS
@@ -217,18 +204,13 @@ def perform_check():
         response_time = time.time() - start_time
         extra_info = f"Unexpected error: {type(e).__name__}"
         print(f"!!! Unexpected error during check: {e}")
-
     print(f"Check result: Status={current_status}, ResponseTime={response_time:.2f}s, Extra='{extra_info}'")
-
-    # --- Update State Counters ---
     if current_status == "UP":
         stable_count += 1
         degraded_count = 0
-    else: # SLOW, ERROR, or DOWN
+    else:
         degraded_count += 1
         stable_count = 0
-
-    # --- Update Alert Mode (Optional) ---
     new_alert_mode = alert_mode
     if not alert_mode and degraded_count >= 2:
         new_alert_mode = True
@@ -236,22 +218,17 @@ def perform_check():
     elif alert_mode and stable_count >= 3:
         new_alert_mode = False
         print("Condition met to exit ALERT mode (state tracked).")
-
-    # --- Prepare data for saving and HTML generation ---
     current_state_data = {
         'status': current_status,
         'response_time': response_time,
-        'extra_info': extra_info, # Store the specific error/status code/timeout message
+        'extra_info': extra_info,
         'stable_count': stable_count,
         'degraded_count': degraded_count,
         'alert_mode': new_alert_mode,
         'last_check_timestamp_utc': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
     }
-
-    # --- Save state and generate HTML ---
     save_current_state(STATE_FILE, current_state_data)
-    generate_html(OUTPUT_HTML_FILE, current_state_data) # Pass the full data
-
+    generate_html(OUTPUT_HTML_FILE, current_state_data)
     print(f"Finished check at {datetime.now(timezone.utc).isoformat()}")
     print("-" * 30)
 
