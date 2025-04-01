@@ -113,13 +113,28 @@ def load_state(filename: str) -> dict:
 
 def save_state(filename: str, state: dict):
     """
-    Saves the current state dictionary to a JSON file.
+    Appends the current state dictionary to the JSON file.
     Ensures the list of recent times doesn't exceed MAX_TIMES_TRACKED.
     """
     try:
-        state['recent_times'] = state.get('recent_times', [])[-MAX_TIMES_TRACKED:]
+        # Load existing data if the file exists
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                if not isinstance(existing_data, list):
+                    existing_data = []
+        else:
+            existing_data = []
+
+        # Append the new state to the existing data
+        existing_data.append(state)
+
+        # Limit the data to the maximum number of entries
+        existing_data = existing_data[-MAX_TIMES_TRACKED:]
+
+        # Save the updated data back to the file
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(state, f, indent=2)
+            json.dump(existing_data, f, indent=2)
     except OSError as e:
         print(f"[ERROR] Could not save state to {filename}. Reason: {e}")
 
