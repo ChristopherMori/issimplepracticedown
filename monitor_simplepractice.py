@@ -2,10 +2,17 @@
 """
 monitor_simplepractice.py
 
-A continuous monitor that checks the latency of
-"https://account.simplepractice.com/" every 5 minutes.
-It writes the current status to `status.json`, appends each result to `history.json`,
-and generates an HTML summary in `index.html`.
+A simple script that checks the load speed and availability of 
+"https://account.simplepractice.com/", storing status in `status.json` 
+and generating an HTML summary in `index.html`.
+
+Includes:
+  - Timeout detection
+  - "Slow" threshold logic
+  - Rolling average speed
+  - Repeated states tracking (stable vs. degraded)
+  - Basic HTML generation with Tailwind CSS
+  - History tracking in `history.json`
 """
 
 import requests
@@ -15,37 +22,53 @@ import html
 from datetime import datetime, timezone
 import os
 
-# =====================================
-# === CONFIGURATION & DEFAULTS ===
-# =====================================
+# Configuration & Defaults
 SITE_URL = "https://account.simplepractice.com/"
-TIMEOUT_LIMIT = 15                # seconds before timing out
-SLOW_THRESHOLD = 2.0              # above this response time (in seconds) is considered slow
-STATE_DB_FILE = "status.json"     # file for current state
-HISTORY_FILE = "history.json"     # file for historical records
+TIMEOUT_LIMIT = 15                # seconds before timeout
+SLOW_THRESHOLD = 2.0              # threshold for slow response
+STATE_DB_FILE = "status.json"     # stores current state
 OUTPUT_HTML = "index.html"        # generated HTML file
-CHECK_INTERVAL_MIN = 5            # check interval in minutes
-MAX_TIMES_TRACKED = 100           # maximum number of history entries to keep
+CHECK_INTERVAL_MIN = 5            # interval for countdown display
+MAX_TIMES_TRACKED = 100           # max history entries
 
-# =====================================
-# === STATUS CATEGORIES & UI INFO ===
-# =====================================
+# Status Categories & UI Info
 STATUS_META = {
-    "UP": {"emoji": "✅", "headline": "All Good!"},
-    "SLOW": {"emoji": "🐢", "headline": "A Bit Slow..."},
-    "ERROR": {"emoji": "⚠️", "headline": "Uh Oh! Error!"},
-    "DOWN": {"emoji": "💔", "headline": "It's Down!"},
-    "UNKNOWN": {"emoji": "❓", "headline": "Unknown"}
+    "UP": {
+        "emoji": "✅",
+        "headline": "All Good!",
+        "bg_class": "bg-green-100",
+        "text_class": "text-green-700"
+    },
+    "SLOW": {
+        "emoji": "🐢",
+        "headline": "A Bit Slow...",
+        "bg_class": "bg-yellow-100",
+        "text_class": "text-yellow-700"
+    },
+    "ERROR": {
+        "emoji": "⚠️",
+        "headline": "Uh Oh! Error!",
+        "bg_class": "bg-orange-100",
+        "text_class": "text-orange-700"
+    },
+    "DOWN": {
+        "emoji": "💔",
+        "headline": "It's Down!",
+        "bg_class": "bg-red-100",
+        "text_class": "text-red-700"
+    },
+    "UNKNOWN": {
+        "emoji": "❓",
+        "headline": "Unknown",
+        "bg_class": "bg-gray-100",
+        "text_class": "text-gray-700"
+    },
 }
 
-# =====================================
-# === HELPER FUNCTIONS ===
-# =====================================
+# Helper Functions
 
 def load_state(filename: str) -> dict:
-    """
-    Loads the current state from a JSON file. If not available, returns default state.
-    """
+    """Loads prior state from JSON or returns default state."""
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -77,19 +100,15 @@ def load_state(filename: str) -> dict:
         }
 
 def save_state(filename: str, state: dict):
-    """
-    Saves the current state to a JSON file (overwriting previous data).
-    """
+    """Saves the current state to JSON."""
     try:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(state, f, indent=2)
     except OSError as e:
-        print(f"[ERROR] Could not save state to {filename}: {e}")
+        print(f"[ERROR] Could not save state to {filename}. Reason: {e}")
 
-def save_history(entry: dict, filename: str = HISTORY_FILE):
-    """
-    Inserts a new entry at the beginning of the history file.
-    """
+def save_history(entry: dict, filename: str = "history.json"):
+    """Appends a new entry to the history file with the status headline."""
     try:
         if os.path.exists(filename):
             with open(filename, 'r', encoding='utf-8') as f:
@@ -99,30 +118,18 @@ def save_history(entry: dict, filename: str = HISTORY_FILE):
         else:
             history = []
         history.insert(0, entry)
-        history = history[:MAX_TIMES_TRACKED]
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(history, f, indent=2)
+            json.dump(history[:MAX_TIMES_TRACKED], f, indent=2)
     except OSError as e:
-        print(f"[ERROR] Could not save history to {filename}: {e}")
+        print(f"[ERROR] Could not save history to {filename}. Reason: {e}")
 
 def calc_average_speed(times_list: list) -> float:
-    """
-    Returns the average of valid response times from a list.
-    """
-    valid = []
-    for t in times_list:
-        try:
-            val = float(t)
-            if 0 < val < TIMEOUT_LIMIT:
-                valid.append(val)
-        except (ValueError, TypeError):
-            pass
+    """Calculates average speed from valid response times."""
+    valid = [float(t) for t in times_list if isinstance(t, (int, float)) and 0 < t < TIMEOUT_LIMIT]
     return sum(valid) / len(valid) if valid else 0.0
 
 def generate_status_html(filename: str, state: dict):
-    """
-    Generates an HTML page summarizing the site status.
-    """
+    """Generates HTML page with Tailwind CSS."""
     current_status = state.get('current_status', 'UNKNOWN')
     meta = STATUS_META.get(current_status, STATUS_META["UNKNOWN"])
 
@@ -132,10 +139,9 @@ def generate_status_html(filename: str, state: dict):
     times = state.get('recent_times', [])
     avg_speed = calc_average_speed(times)
     avg_str = f"{avg_speed:.2f} s" if avg_speed > 0 else "-- s"
-
     valid_count = sum(1 for x in times if isinstance(x, (int, float)) and 0 < x < TIMEOUT_LIMIT)
 
-    last_check_utc_str = state.get('last_check_utc') or ''
+    last_check_utc_str = state.get('last_check_utc', '')
     last_check_display = "Never"
     if last_check_utc_str:
         try:
@@ -143,6 +149,8 @@ def generate_status_html(filename: str, state: dict):
             last_check_display = dt_utc.astimezone().strftime('%b %d, %Y, %I:%M:%S %p %Z')
         except ValueError:
             pass
+
+    extra = state.get('extra_details', '')
 
     html_out = f"""<!DOCTYPE html>
 <html lang="en">
@@ -155,10 +163,7 @@ def generate_status_html(filename: str, state: dict):
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
   <style>
     body {{ font-family: 'Inter', sans-serif; }}
-    @keyframes pulse-bg {{
-      0%, 100% {{ opacity: 1; }}
-      50% {{ opacity: 0.7; }}
-    }}
+    @keyframes pulse-bg {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.7; }} }}
     .animate-pulse-bg {{ animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }}
     .status-emoji {{ font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }}
   </style>
@@ -168,19 +173,20 @@ def generate_status_html(filename: str, state: dict):
     <header class="mb-6 text-center">
       <h1 class="text-3xl font-bold text-gray-800 mb-1">SimplePractice Monitor</h1>
       <p class="text-sm text-gray-500">
-        Monitoring:
-        <code class="bg-gray-100 px-1 rounded font-mono">{html.escape(SITE_URL)}</code>
+        Monitoring: <code class="bg-gray-100 px-1 rounded font-mono">{html.escape(SITE_URL)}</code>
       </p>
     </header>
-    <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500">
+
+    <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 {meta['bg_class']} {'animate-pulse-bg' if current_status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
       <div class="flex items-center justify-between mb-4 flex-wrap">
-        <h2 id="status-text" class="text-xl font-medium flex items-center mb-2 sm:mb-0">
-          <span class="status-emoji">{meta['emoji']}</span>{meta['headline']}
+        <h2 class="text-xl font-medium flex items-center {meta['text_class']} mb-2 sm:mb-0">
+          <span class="status-emoji">{meta['emoji']}</span>
+          <span>How's it doing?</span>
+          <span id="status-text" class="ml-2 font-semibold">{html.escape(meta['headline'])}</span>
         </h2>
         <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-          Checked:
-          <span id="last-checked-display">{html.escape(last_check_display)}</span>
-          <span id="last-check-iso" style="display:none;">{html.escape(last_check_utc_str)}</span>
+          Checked: <span id="last-checked-display">{html.escape(last_check_display)}</span>
+          {f'<span id="last-check-iso" style="display:none;">{html.escape(last_check_utc_str)}</span>' if last_check_utc_str else ''}
         </span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -193,44 +199,101 @@ def generate_status_html(filename: str, state: dict):
           <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(avg_str)}</span>
         </div>
       </div>
+      {"".join([f'<div class="text-xs text-center mt-3 {meta["text_class"]}"><p>({html.escape(extra)})</p></div>']) if current_status in ["ERROR", "DOWN"] and extra else ""}
     </div>
+
     <div class="text-center mb-6 text-sm text-gray-600">
       <p>Approx. next check in: <span id="countdown-timer" class="font-semibold">--:--</span></p>
-      <p class="text-xs text-gray-500">(Checks occur every {CHECK_INTERVAL_MIN} minutes)</p>
+      <p class="text-xs text-gray-500">(Refreshes roughly every {CHECK_INTERVAL_MIN} min by automation)</p>
     </div>
-    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 mt-6">
-      <h2 class="text-2xl font-bold text-gray-800 mb-4">History</h2>
-      <ul id="history-list" class="list-disc pl-5"></ul>
+
+    <div class="mt-6">
+      <h3 class="text-lg font-medium text-gray-700 mb-2">Recent Checks</h3>
+      <ul id="history-list" class="text-sm text-gray-600 list-disc list-inside"></ul>
     </div>
+
     <div class="text-center text-xs text-gray-400 mt-6">
       Status as of: {html.escape(last_check_display)}.
     </div>
   </div>
-  <!-- Client-side scripts will update the status and history -->
-  <script src="script.js"></script>
+
+  <script>
+    const cdEl = document.getElementById('countdown-timer');
+    const lastCheckEl = document.getElementById('last-check-iso');
+    const historyListEl = document.getElementById('history-list');
+    const intervalMs = {CHECK_INTERVAL_MIN} * 60 * 1000;
+    const historyLimit = 10;
+    const history = [];
+    const statusJsonUrl = '/history.json';
+
+    function updateCountdown() {{
+      if (!lastCheckEl || !cdEl) return;
+      const iso = lastCheckEl.textContent;
+      if (!iso) {{ cdEl.textContent = "--:--"; return; }}
+      const startMillis = new Date(iso).getTime();
+      if (isNaN(startMillis)) {{ cdEl.textContent = "--:--"; return; }}
+      const now = Date.now();
+      const nextCheck = startMillis + intervalMs;
+      const diff = nextCheck - now;
+      if (diff <= 0) {{
+        cdEl.textContent = "Soon...";
+      }} else {{
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+        cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
+      }}
+    }}
+
+    async function loadHistoryFromJson() {{
+      try {{
+        const response = await fetch(statusJsonUrl);
+        if (!response.ok) {{ console.error('Failed to fetch history from history.json'); return; }}
+        const data = await response.json();
+        const entries = data.slice(0, historyLimit);
+        entries.forEach((entry) => {{
+          const localTime = new Date(entry.timestamp).toLocaleString();
+          addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
+        }});
+      }} catch (error) {{
+        console.error('Error loading history:', error);
+      }}
+    }}
+
+    function addToHistory(entry) {{
+      history.unshift(entry);
+      if (history.length > historyLimit) history.pop();
+      renderHistory();
+    }}
+
+    function renderHistory() {{
+      if (!historyListEl) return;
+      historyListEl.innerHTML = '';
+      history.forEach((entry) => {{
+        const li = document.createElement('li');
+        li.textContent = entry;
+        historyListEl.appendChild(li);
+      }});
+    }}
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+    loadHistoryFromJson();
+  </script>
 </body>
 </html>
 """
-
     try:
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(html_out)
         print(f"[INFO] HTML file generated: {filename}")
     except OSError as e:
-        print(f"[ERROR] Could not write HTML output: {e}")
+        print(f"[ERROR] Could not write HTML output. Reason: {e}")
 
 def run_monitor():
-    """
-    Performs a single check:
-      - Loads previous state,
-      - Times a request to the site,
-      - Determines if the site is UP, SLOW, ERROR, or DOWN,
-      - Updates streak counters and alert flags,
-      - Saves the new state and appends to history,
-      - Generates the HTML page.
-    """
-    print(f"{'-'*28}\n[INFO] Starting check at UTC {datetime.now(timezone.utc).isoformat()}")
+    """Main logic to check site status and update files."""
+    print(f"{'-' * 28}\n[INFO] Starting check at UTC {datetime.now(timezone.utc).isoformat()}")
     state = load_state(STATE_DB_FILE)
+
     stable_streak = state.get('stable_streak', 0)
     degraded_streak = state.get('degraded_streak', 0)
     alert_active = state.get('alert_active', False)
@@ -274,10 +337,10 @@ def run_monitor():
 
     if not alert_active and degraded_streak >= 2:
         alert_active = True
-        print("[INFO] ENABLE alerts.")
+        print("[INFO] Condition met to ENABLE alerts.")
     elif alert_active and stable_streak >= 3:
         alert_active = False
-        print("[INFO] DISABLE alerts.")
+        print("[INFO] Condition met to DISABLE alerts.")
 
     new_state = {
         'current_status': new_status,
@@ -290,15 +353,17 @@ def run_monitor():
         'recent_times': recent_times,
     }
     save_state(STATE_DB_FILE, new_state)
+
+    # Save history with status headline
     save_history({
         "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-        "status": new_status
+        "status": STATUS_META[new_status]['headline']
     })
+
     generate_status_html(OUTPUT_HTML, new_state)
-    print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}\n{'-'*28}")
+
+    print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}")
+    print("-" * 28)
 
 if __name__ == "__main__":
-    # Run continuously, checking every CHECK_INTERVAL_MIN minutes
-    while True:
-        run_monitor()
-        time.sleep(CHECK_INTERVAL_MIN * 60)
+    run_monitor()

@@ -1,11 +1,8 @@
 name: "SimplePractice Monitor"
 
 on:
-  # Runs every 5 minutes. Adjust as desired.
   schedule:
-    - cron: "*/5 * * * *"
-
-  # Allows you to run the workflow manually from the "Actions" tab
+    - cron: "*/15 * * * *"  # Runs every 15 minutes
   workflow_dispatch:
 
 jobs:
@@ -16,8 +13,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
         with:
-          # Pull the full history to allow rebasing/pushing
-          fetch-depth: 0
+          fetch-depth: 0  # Fetches full history for rebasing
 
       - name: Configure Git
         run: |
@@ -26,24 +22,28 @@ jobs:
 
       - name: Pull latest commits
         run: |
-          # Ensure we're on main, then rebase from remote
           git checkout main
           git pull --rebase origin main
 
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'  # Specify Python version
+
       - name: Install dependencies
-        run: |
-          pip install requests
+        run: pip install -r requirements.txt  # Assumes requirements.txt exists
 
       - name: Run the SimplePractice Monitor
-        run: |
-          python monitor_simplepractice.py
+        run: python monitor_simplepractice.py
+        id: monitor
 
       - name: Stage and commit
+        if: steps.monitor.outcome == 'success'
         run: |
           git add status.json index.html
-          git commit -m "Update status artifacts [skip ci]" || echo "No changes to commit"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          git commit -m "Update status artifacts at $TIMESTAMP [skip ci]" || echo "No changes to commit"
 
       - name: Push changes
-        run: |
-          # Push the newly committed changes back to main
-          git push origin HEAD:main
+        if: steps.monitor.outcome == 'success'
+        run: git push origin HEAD:main
