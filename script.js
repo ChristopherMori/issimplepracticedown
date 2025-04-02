@@ -1,18 +1,19 @@
-// ...existing code...
-const historyListEl = document.getElementById('history-list'); // Reference the history list element
-const historyLimit = 10; // Limit to the last 10 results
-const history = []; // Array to store historical data
-const statusJsonUrl = '/history.json'; // Path to the JSON file containing historical data
+// References the history list element (make sure your HTML includes an element with id="history-list")
+const historyListEl = document.getElementById('history-list');
+const historyLimit = 10; // Limit to the last 10 entries
+const historyEntries = []; // Array to store historical entries
+const historyJsonUrl = '/history.json'; // Path to the JSON file containing history data
 
 async function loadHistoryFromJson() {
   try {
-    const response = await fetch(statusJsonUrl);
+    const response = await fetch(historyJsonUrl);
     if (!response.ok) {
-      console.error('Failed to fetch history from status.json');
+      console.error('Failed to fetch history from history.json');
       return;
     }
     const data = await response.json();
-    const entries = data.slice(0, historyLimit); // Get the last 10 entries
+    // Use the latest entries (assuming data is ordered with newest first)
+    const entries = data.slice(0, historyLimit);
     entries.forEach((entry) => {
       const localTime = new Date(entry.timestamp).toLocaleString();
       addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
@@ -24,14 +25,11 @@ async function loadHistoryFromJson() {
 
 function addToHistory(entry) {
   // Add the new entry to the beginning of the history array
-  history.unshift(entry);
-
-  // Limit the history to the last 10 entries
-  if (history.length > historyLimit) {
-    history.pop();
+  historyEntries.unshift(entry);
+  // Limit the history to the last historyLimit entries
+  if (historyEntries.length > historyLimit) {
+    historyEntries.pop();
   }
-
-  // Update the history list in the DOM
   renderHistory();
 }
 
@@ -39,18 +37,15 @@ function renderHistory() {
   if (!historyListEl) {
     return;
   }
-
   // Clear the current list
   historyListEl.innerHTML = '';
-
-  // Add each history entry to the list
-  history.forEach((entry) => {
+  // Render each history entry
+  historyEntries.forEach((entry) => {
     const li = document.createElement('li');
     li.textContent = entry;
     historyListEl.appendChild(li);
   });
 }
 
-// Load history from status.json on page load
+// Load history from history.json on page load
 loadHistoryFromJson();
-// ...existing code...

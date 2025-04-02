@@ -3,7 +3,7 @@
 monitor_simplepractice.py
 
 A simple script that checks the load speed and availability of 
-"https://account.simplepractice.com/", storing status in `status.json` 
+"https://account.simplepractice.com/", storing state in `status.json` 
 and generating an HTML summary in `index.html`.
 
 Includes:
@@ -27,10 +27,10 @@ import os
 SITE_URL = "https://account.simplepractice.com/"
 TIMEOUT_LIMIT = 15                # seconds before we consider it timed out
 SLOW_THRESHOLD = 2.0              # threshold above which a response is considered slow
-STATE_DB_FILE = "status.json"     # local JSON-based "database" of prior states
+STATE_DB_FILE = "status.json"     # local JSON file for the current state
 OUTPUT_HTML = "index.html"        # output file showing the current status
 CHECK_INTERVAL_MIN = 5            # used in the countdown display (not the actual schedule)
-MAX_TIMES_TRACKED = 100           # Define the maximum number of history entries to track
+MAX_TIMES_TRACKED = 100           # Maximum number of history entries to track
 
 # =====================================
 # === STATUS CATEGORIES & UI INFO ===
@@ -80,7 +80,12 @@ def load_state(filename: str) -> dict:
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            # Ensure the data is a dictionary
+            # If the file contains a list (from previous versions), use the last element.
+            if isinstance(data, list):
+                if data:
+                    data = data[-1]
+                else:
+                    raise ValueError("State file list is empty")
             if not isinstance(data, dict):
                 raise ValueError("State file does not contain a dictionary")
             # Ensure all expected keys exist
@@ -97,7 +102,6 @@ def load_state(filename: str) -> dict:
             data['recent_times'] = times[-MAX_TIMES_TRACKED:]
             return data
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-        # Log the error and return an empty dictionary
         print(f"[ERROR] Failed to load state: {e}")
         return {
             'current_status': 'UNKNOWN',
@@ -110,38 +114,20 @@ def load_state(filename: str) -> dict:
             'recent_times': []
         }
 
-
 def save_state(filename: str, state: dict):
     """
-    Appends the current state dictionary to the JSON file.
-    Ensures the list of recent times doesn't exceed MAX_TIMES_TRACKED.
+    Saves the current state dictionary to the JSON file,
+    overwriting any previous content.
     """
     try:
-        # Load existing data if the file exists
-        if os.path.exists(filename):
-            with open(filename, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-                if not isinstance(existing_data, list):
-                    existing_data = []
-        else:
-            existing_data = []
-
-        # Append the new state to the existing data
-        existing_data.append(state)
-
-        # Limit the data to the maximum number of entries
-        existing_data = existing_data[-MAX_TIMES_TRACKED:]
-
-        # Save the updated data back to the file
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(existing_data, f, indent=2)
+            json.dump(state, f, indent=2)
     except OSError as e:
         print(f"[ERROR] Could not save state to {filename}. Reason: {e}")
 
-
 def save_history(entry: dict, filename: str = "history.json"):
     """
-    Appends a new entry to the history file.
+    Inserts a new entry at the beginning of the history file.
     """
     try:
         if os.path.exists(filename):
@@ -151,17 +137,17 @@ def save_history(entry: dict, filename: str = "history.json"):
                     history = []
         else:
             history = []
-        history.insert(0, entry)  # Add the new entry to the beginning
+        history.insert(0, entry)
+        # Limit history entries to MAX_TIMES_TRACKED
+        history = history[:MAX_TIMES_TRACKED]
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(history[:MAX_TIMES_TRACKED], f, indent=2)
+            json.dump(history, f, indent=2)
     except OSError as e:
         print(f"[ERROR] Could not save history to {filename}. Reason: {e}")
 
-
 def calc_average_speed(times_list: list) -> float:
     """
-    Given a list of numeric response times, filter out 0 or invalid entries
-    and return the average.
+    Calculates the average response time from a list of valid response times.
     """
     valid = []
     for t in times_list:
@@ -173,30 +159,25 @@ def calc_average_speed(times_list: list) -> float:
             pass
     return sum(valid) / len(valid) if valid else 0.0
 
-
 def generate_status_html(filename: str, state: dict):
     """
-    Generates a Tailwind-based HTML page summarizing the SimplePractice site's status.
+    Generates an HTML page summarizing the site's status using Tailwind CSS.
     """
     current_status = state.get('current_status', 'UNKNOWN')
     meta = STATUS_META.get(current_status, STATUS_META["UNKNOWN"])
 
-    # Format the most recent (last) response time
+    # Format the most recent response time
     rt = state.get('last_response_time', 0)
-    if isinstance(rt, (int, float)) and rt > 0:
-        last_rt_str = f"{rt:.2f} s"
-    else:
-        last_rt_str = "-- s"
+    last_rt_str = f"{rt:.2f} s" if isinstance(rt, (int, float)) and rt > 0 else "-- s"
 
-    # Prepare average info
+    # Calculate average speed
     times = state.get('recent_times', [])
     avg_speed = calc_average_speed(times)
     avg_str = f"{avg_speed:.2f} s" if avg_speed > 0 else "-- s"
 
-    # Count how many times are valid in the rolling set
     valid_count = sum(1 for x in times if isinstance(x, (int, float)) and 0 < x < TIMEOUT_LIMIT)
 
-    # Attempt to parse the last check time
+    # Format the last check time
     last_check_utc_str = state.get('last_check_utc') or ''
     last_check_display = "Never"
     if last_check_utc_str:
@@ -206,7 +187,6 @@ def generate_status_html(filename: str, state: dict):
         except ValueError:
             pass
 
-    # Additional info (error messages, status codes, etc.)
     extra = state.get('extra_details', '')
 
     html_out = f"""<!DOCTYPE html>
@@ -292,45 +272,45 @@ def generate_status_html(filename: str, state: dict):
       Status as of: {html.escape(last_check_display)}.
     </div>
   </div>
-
-  <script>
-    const cdEl = document.getElementById('countdown-timer');
-    const lastCheckEl = document.getElementById('last-check-iso');
-    const intervalMs = {CHECK_INTERVAL_MIN} * 60 * 1000;
-
-    function updateCountdown() {{
-      if (!lastCheckEl || !cdEl) {{
-        return;
-      }}
-      const iso = lastCheckEl.textContent;
-      if (!iso) {{
-        cdEl.textContent = "--:--";
-        return;
-      }}
-      const startMillis = new Date(iso).getTime();
-      if (isNaN(startMillis)) {{
-        cdEl.textContent = "--:--";
-        return;
-      }}
-      const now = Date.now();
-      const nextCheck = startMillis + intervalMs;
-      const diff = nextCheck - now;
-
-      if (diff <= 0) {{
-        cdEl.textContent = "Soon...";
-      }} else {{
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
-      }}
-    }}
-
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-  </script>
 </body>
+<script>
+  const cdEl = document.getElementById('countdown-timer');
+  const lastCheckEl = document.getElementById('last-check-iso');
+  const intervalMs = {CHECK_INTERVAL_MIN} * 60 * 1000;
+
+  function updateCountdown() {{
+    if (!lastCheckEl || !cdEl) {{
+      return;
+    }}
+    const iso = lastCheckEl.textContent;
+    if (!iso) {{
+      cdEl.textContent = "--:--";
+      return;
+    }}
+    const startMillis = new Date(iso).getTime();
+    if (isNaN(startMillis)) {{
+      cdEl.textContent = "--:--";
+      return;
+    }}
+    const now = Date.now();
+    const nextCheck = startMillis + intervalMs;
+    const diff = nextCheck - now;
+
+    if (diff <= 0) {{
+      cdEl.textContent = "Soon...";
+    }} else {{
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
+    }}
+  }}
+
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+</script>
 </html>
 """
+
     try:
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(html_out)
@@ -338,15 +318,14 @@ def generate_status_html(filename: str, state: dict):
     except OSError as e:
         print(f"[ERROR] Could not write HTML output. Reason: {e}")
 
-
 def run_monitor():
     """
-    The main check logic:
-      - Load prior state
-      - Time a request to the site
-      - Decide if it's UP, SLOW, ERROR, or DOWN
-      - Update streaks and alert flags
-      - Save new state, generate fresh HTML
+    Main check logic:
+      - Loads prior state
+      - Times a request to the site
+      - Determines if it's UP, SLOW, ERROR, or DOWN
+      - Updates streak counts and alert flags
+      - Saves the new state and history entry, then generates fresh HTML
     """
     print(f"{'-' * 28}\n[INFO] Starting check at UTC {datetime.now(timezone.utc).isoformat()}")
     state = load_state(STATE_DB_FILE)
@@ -366,10 +345,7 @@ def run_monitor():
         resp = requests.get(SITE_URL, timeout=TIMEOUT_LIMIT)
         response_duration = time.time() - start_t
         if resp.status_code == 200:
-            if response_duration > SLOW_THRESHOLD:
-                new_status = "SLOW"
-            else:
-                new_status = "UP"
+            new_status = "SLOW" if response_duration > SLOW_THRESHOLD else "UP"
         else:
             new_status = "ERROR"
             extra_info = f"HTTP {resp.status_code}"
@@ -384,14 +360,13 @@ def run_monitor():
         extra_info = f"Unknown error: {type(e).__name__}"
         print(f"[ERROR] Unexpected exception: {e}")
 
-    # Log the result
     print(f"[INFO] Result -> Status={new_status}, RespTime={response_duration:.2f}s, Info='{extra_info}'")
 
-    # Decide how to record the new response time
+    # Record response time only if the status is UP or SLOW
     record_time = response_duration if new_status in ("UP", "SLOW") else 0
     recent_times.append(record_time)
 
-    # Update stable/degraded streak counts
+    # Update streaks
     if new_status == "UP":
         stable_streak += 1
         degraded_streak = 0
@@ -399,7 +374,7 @@ def run_monitor():
         degraded_streak += 1
         stable_streak = 0
 
-    # Manage the "alert_active" flag
+    # Update alert flag
     if not alert_active and degraded_streak >= 2:
         alert_active = True
         print("[INFO] Condition met to ENABLE alerts.")
@@ -407,7 +382,6 @@ def run_monitor():
         alert_active = False
         print("[INFO] Condition met to DISABLE alerts.")
 
-    # Build and save the new state
     new_state = {
         'current_status': new_status,
         'last_response_time': response_duration,
@@ -420,18 +394,17 @@ def run_monitor():
     }
     save_state(STATE_DB_FILE, new_state)
 
-    # Save the history entry
+    # Save history entry
     save_history({
         "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         "status": new_status
     })
 
-    # Generate the HTML
+    # Generate the HTML status page
     generate_status_html(OUTPUT_HTML, new_state)
 
     print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}")
     print("-" * 28)
-
 
 if __name__ == "__main__":
     run_monitor()
