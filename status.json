@@ -1,11 +1,11 @@
 {
   "current_status": "UP",
-  "last_response_time": 0.523078441619873,
+  "last_response_time": 0.15343856811523438,
   "extra_details": "",
-  "stable_streak": 30,
+  "stable_streak": 31,
   "degraded_streak": 0,
   "alert_active": false,
-  "last_check_utc": "2025-04-02T13:36:05.314905Z",
+  "last_check_utc": "2025-04-02T13:48:56.793069Z",
   "recent_times": [
     0.36518144607543945,
     0.45020389556884766,
@@ -36,6 +36,7 @@
     0.4316573143005371,
     0.4972829818725586,
     0.2226393222808838,
-    0.523078441619873
+    0.523078441619873,
+    0.15343856811523438
   ]
 }
