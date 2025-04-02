@@ -1,161 +1,125 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>SimplePractice Monitor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://rsms.me/" />
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    @keyframes pulse-bg {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-    .animate-pulse-bg {
-      animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    .status-emoji {
-      font-size: 1.5rem;
-      line-height: 1;
-      margin-right: 0.5rem;
-      display: inline-block;
-      vertical-align: middle;
-    }
-  </style>
-</head>
-<body class="bg-gray-100 p-4 md:p-8">
-  <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
-    <header class="mb-6 text-center">
-      <h1 class="text-3xl font-bold text-gray-800 mb-1">SimplePractice Monitor</h1>
-      <p class="text-sm text-gray-500">
-        Monitoring:
-        <code class="bg-gray-100 px-1 rounded font-mono">https://account.simplepractice.com/</code>
-      </p>
-    </header>
 
-    <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 bg-green-100">
-      <div class="flex items-center justify-between mb-4 flex-wrap">
-        <h2 class="text-xl font-medium flex items-center text-green-700 mb-2 sm:mb-0">
-          <span class="status-emoji">✅</span>
-          <span>How's it doing?</span>
-          <span id="status-text" class="ml-2 font-semibold">All Good!</span>
-        </h2>
-        <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-          Checked:
-          <span id="last-checked-display">Apr 02, 2025, 01:09:46 AM UTC</span>
-          <span id="last-check-iso" style="display:none;">2025-04-02T01:09:46.274622Z</span>
-        </span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-        <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-          <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-          <span id="response-time" class="font-semibold text-lg text-gray-800">0.45 s</span>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>SimplePractice Monitor</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <script src="https://cdn.tailwindcss.com"></script>
+      <link rel="preconnect" href="https://rsms.me/" />
+      <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+      <style>
+        body { font-family: 'Inter', sans-serif; }
+        @keyframes pulse-bg { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .animate-pulse-bg { animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .status-emoji { font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }
+      </style>
+    </head>
+    <body class="bg-gray-100 p-4 md:p-8">
+      <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <header class="mb-6 text-center">
+          <h1 class="text-3xl font-bold text-gray-800 mb-1">SimplePractice Monitor</h1>
+          <p class="text-sm text-gray-500">
+            Monitoring: <code class="bg-gray-100 px-1 rounded font-mono">https://account.simplepractice.com/</code>
+          </p>
+        </header>
+
+        <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 bg-green-100 ">
+          <div class="flex items-center justify-between mb-4 flex-wrap">
+            <h2 class="text-xl font-medium flex items-center text-green-700 mb-2 sm:mb-0">
+              <span class="status-emoji">✅</span>
+              <span>How's it doing?</span>
+              <span id="status-text" class="ml-2 font-semibold">All Good!</span>
+            </h2>
+            <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
+              Checked: <span id="last-checked-display">Apr 02, 2025, 03:50:26 AM UTC</span>
+              <span id="last-check-iso" style="display:none;">2025-04-02T03:50:26.986945Z</span>
+            </span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
+              <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
+              <span id="response-time" class="font-semibold text-lg text-gray-800">0.37 s</span>
+            </div>
+            <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
+              <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 1)</span>
+              <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.37 s</span>
+            </div>
+          </div>
+          
         </div>
-        <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-          <span class="text-gray-600 block text-xs mb-1">
-            Avg. Speed (Last 1)
-          </span>
-          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.45 s</span>
+
+        <div class="text-center mb-6 text-sm text-gray-600">
+          <p>Approx. next check in: <span id="countdown-timer" class="font-semibold">--:--</span></p>
+          <p class="text-xs text-gray-500">(Refreshes roughly every 5 min by automation)</p>
+        </div>
+
+        <div class="mt-6">
+          <h3 class="text-lg font-medium text-gray-700 mb-2">Recent Checks</h3>
+          <ul id="history-list" class="text-sm text-gray-600 list-disc list-inside"></ul>
+        </div>
+
+        <div class="text-center text-xs text-gray-400 mt-6">
+          Status as of: Apr 02, 2025, 03:50:26 AM UTC.
         </div>
       </div>
-    </div>
 
-    <div class="text-center mb-6 text-sm text-gray-600">
-      <p>
-        Approx. next check in:
-        <span id="countdown-timer" class="font-semibold">--:--</span>
-      </p>
-      <p class="text-xs text-gray-500">
-        (Refreshes roughly every 5 min by automation)
-      </p>
-    </div>
-
-    <!-- History Section -->
-    <div class="mt-6">
-      <h3 class="text-lg font-medium text-gray-700 mb-2">Recent Checks</h3>
-      <ul id="history-list" class="text-sm text-gray-600 list-disc list-inside"></ul>
-    </div>
-
-    <div class="text-center text-xs text-gray-400 mt-6">
-      Status as of: Apr 02, 2025, 01:09:46 AM UTC.
-    </div>
-  </div>
-
-  <script>
+      <script>
+        
     const cdEl = document.getElementById('countdown-timer');
     const lastCheckEl = document.getElementById('last-check-iso');
     const historyListEl = document.getElementById('history-list');
     const intervalMs = 5 * 60 * 1000; // 5 minutes in milliseconds
     const historyLimit = 10;
-    const history = [];
-    const statusJsonUrl = '/history.json';
 
     function updateCountdown() {
-      if (!lastCheckEl || !cdEl) return;
-      const iso = lastCheckEl.textContent;
-      if (!iso) {
-        cdEl.textContent = "--:--";
-        return;
-      }
-      const startMillis = new Date(iso).getTime();
-      if (isNaN(startMillis)) {
-        cdEl.textContent = "--:--";
-        return;
-      }
-      const now = Date.now();
-      const nextCheck = startMillis + intervalMs;
-      const diff = nextCheck - now;
-
-      if (diff <= 0) {
-        cdEl.textContent = "Soon...";
-      } else {
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
-      }
-    }
-
-    async function loadHistoryFromJson() {
-      try {
-        const response = await fetch(statusJsonUrl);
-        if (!response.ok) {
-          console.error('Failed to fetch history from history.json');
-          return;
+        if (!lastCheckEl || !cdEl) return;
+        const iso = lastCheckEl.textContent;
+        if (!iso) { cdEl.textContent = "--:--"; return; }
+        const startMillis = new Date(iso).getTime();
+        if (isNaN(startMillis)) { cdEl.textContent = "--:--"; return; }
+        const now = Date.now();
+        const nextCheck = startMillis + intervalMs;
+        const diff = nextCheck - now;
+        if (diff <= 0) {
+            cdEl.textContent = "Soon...";
+        } else {
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+            cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
         }
-        const data = await response.json();
-        const entries = data.slice(0, historyLimit);
-        entries.forEach((entry) => {
-          const localTime = new Date(entry.timestamp).toLocaleString();
-          addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
-        });
-      } catch (error) {
-        console.error('Error loading history:', error);
-      }
     }
 
     function addToHistory(entry) {
-      history.unshift(entry);
-      if (history.length > historyLimit) history.pop();
-      renderHistory();
-    }
-
-    function renderHistory() {
-      if (!historyListEl) return;
-      historyListEl.innerHTML = '';
-      history.forEach((entry) => {
+        if (!historyListEl) return;
         const li = document.createElement('li');
         li.textContent = entry;
-        historyListEl.appendChild(li);
-      });
+        if (historyListEl.children.length >= historyLimit) {
+            historyListEl.removeChild(historyListEl.lastChild);
+        }
+        historyListEl.insertBefore(li, historyListEl.firstChild);
+    }
+
+    async function loadHistoryFromJson() {
+        try {
+            const response = await fetch('status.json');
+            if (!response.ok) { console.error('Failed to fetch history'); return; }
+            const data = await response.json();
+            const entries = data.slice(0, historyLimit);
+            entries.forEach((entry) => {
+                const localTime = new Date(entry.timestamp).toLocaleString();
+                addToHistory(`Checked at: ${localTime} - Status: ${entry.status}`);
+            });
+        } catch (error) {
+            console.error('Error loading history:', error);
+        }
     }
 
     updateCountdown();
     setInterval(updateCountdown, 1000);
     loadHistoryFromJson();
-  </script>
-</body>
-</html>
+    
+      </script>
+    </body>
+    </html>
+    
