@@ -2,16 +2,10 @@
 """
 monitor_simplepractice.py
 
-A simple script that checks the load speed and availability of 
-"https://account.simplepractice.com/", storing state in `status.json` 
-and generating an HTML summary in `index.html`.
-
-Includes:
-  - Timeout detection
-  - "Slow" threshold logic
-  - Rolling average speed
-  - Repeated states tracking (stable vs. degraded)
-  - Basic HTML generation with Tailwind CSS
+A continuous monitor that checks the latency of
+"https://account.simplepractice.com/" every 5 minutes.
+It writes the current status to `status.json`, appends each result to `history.json`,
+and generates an HTML summary in `index.html`.
 """
 
 import requests
@@ -25,47 +19,23 @@ import os
 # === CONFIGURATION & DEFAULTS ===
 # =====================================
 SITE_URL = "https://account.simplepractice.com/"
-TIMEOUT_LIMIT = 15                # seconds before we consider it timed out
-SLOW_THRESHOLD = 2.0              # threshold above which a response is considered slow
-STATE_DB_FILE = "status.json"     # local JSON file for the current state
-OUTPUT_HTML = "index.html"        # output file showing the current status
-CHECK_INTERVAL_MIN = 5            # used in the countdown display (not the actual schedule)
-MAX_TIMES_TRACKED = 100           # Maximum number of history entries to track
+TIMEOUT_LIMIT = 15                # seconds before timing out
+SLOW_THRESHOLD = 2.0              # above this response time (in seconds) is considered slow
+STATE_DB_FILE = "status.json"     # file for current state
+HISTORY_FILE = "history.json"     # file for historical records
+OUTPUT_HTML = "index.html"        # generated HTML file
+CHECK_INTERVAL_MIN = 5            # check interval in minutes
+MAX_TIMES_TRACKED = 100           # maximum number of history entries to keep
 
 # =====================================
 # === STATUS CATEGORIES & UI INFO ===
 # =====================================
 STATUS_META = {
-    "UP": {
-        "emoji": "✅",
-        "headline": "All Good!",
-        "bg_class": "bg-green-100",
-        "text_class": "text-green-700"
-    },
-    "SLOW": {
-        "emoji": "🐢",
-        "headline": "A Bit Slow...",
-        "bg_class": "bg-yellow-100",
-        "text_class": "text-yellow-700"
-    },
-    "ERROR": {
-        "emoji": "⚠️",
-        "headline": "Uh Oh! Error!",
-        "bg_class": "bg-orange-100",
-        "text_class": "text-orange-700"
-    },
-    "DOWN": {
-        "emoji": "💔",
-        "headline": "It's Down!",
-        "bg_class": "bg-red-100",
-        "text_class": "text-red-700"
-    },
-    "UNKNOWN": {
-        "emoji": "❓",
-        "headline": "Unknown",
-        "bg_class": "bg-gray-100",
-        "text_class": "text-gray-700"
-    },
+    "UP": {"emoji": "✅", "headline": "All Good!"},
+    "SLOW": {"emoji": "🐢", "headline": "A Bit Slow..."},
+    "ERROR": {"emoji": "⚠️", "headline": "Uh Oh! Error!"},
+    "DOWN": {"emoji": "💔", "headline": "It's Down!"},
+    "UNKNOWN": {"emoji": "❓", "headline": "Unknown"}
 }
 
 # =====================================
@@ -74,21 +44,13 @@ STATUS_META = {
 
 def load_state(filename: str) -> dict:
     """
-    Loads a previously saved state from JSON. If none exists (or it's invalid),
-    returns a default state dictionary.
+    Loads the current state from a JSON file. If not available, returns default state.
     """
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            # If the file contains a list (from previous versions), use the last element.
-            if isinstance(data, list):
-                if data:
-                    data = data[-1]
-                else:
-                    raise ValueError("State file list is empty")
             if not isinstance(data, dict):
                 raise ValueError("State file does not contain a dictionary")
-            # Ensure all expected keys exist
             data.setdefault('current_status', 'UNKNOWN')
             data.setdefault('stable_streak', 0)
             data.setdefault('degraded_streak', 0)
@@ -116,16 +78,15 @@ def load_state(filename: str) -> dict:
 
 def save_state(filename: str, state: dict):
     """
-    Saves the current state dictionary to the JSON file,
-    overwriting any previous content.
+    Saves the current state to a JSON file (overwriting previous data).
     """
     try:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(state, f, indent=2)
     except OSError as e:
-        print(f"[ERROR] Could not save state to {filename}. Reason: {e}")
+        print(f"[ERROR] Could not save state to {filename}: {e}")
 
-def save_history(entry: dict, filename: str = "history.json"):
+def save_history(entry: dict, filename: str = HISTORY_FILE):
     """
     Inserts a new entry at the beginning of the history file.
     """
@@ -138,16 +99,15 @@ def save_history(entry: dict, filename: str = "history.json"):
         else:
             history = []
         history.insert(0, entry)
-        # Limit history entries to MAX_TIMES_TRACKED
         history = history[:MAX_TIMES_TRACKED]
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(history, f, indent=2)
     except OSError as e:
-        print(f"[ERROR] Could not save history to {filename}. Reason: {e}")
+        print(f"[ERROR] Could not save history to {filename}: {e}")
 
 def calc_average_speed(times_list: list) -> float:
     """
-    Calculates the average response time from a list of valid response times.
+    Returns the average of valid response times from a list.
     """
     valid = []
     for t in times_list:
@@ -161,23 +121,20 @@ def calc_average_speed(times_list: list) -> float:
 
 def generate_status_html(filename: str, state: dict):
     """
-    Generates an HTML page summarizing the site's status using Tailwind CSS.
+    Generates an HTML page summarizing the site status.
     """
     current_status = state.get('current_status', 'UNKNOWN')
     meta = STATUS_META.get(current_status, STATUS_META["UNKNOWN"])
 
-    # Format the most recent response time
     rt = state.get('last_response_time', 0)
     last_rt_str = f"{rt:.2f} s" if isinstance(rt, (int, float)) and rt > 0 else "-- s"
 
-    # Calculate average speed
     times = state.get('recent_times', [])
     avg_speed = calc_average_speed(times)
     avg_str = f"{avg_speed:.2f} s" if avg_speed > 0 else "-- s"
 
     valid_count = sum(1 for x in times if isinstance(x, (int, float)) and 0 < x < TIMEOUT_LIMIT)
 
-    # Format the last check time
     last_check_utc_str = state.get('last_check_utc') or ''
     last_check_display = "Never"
     if last_check_utc_str:
@@ -186,8 +143,6 @@ def generate_status_html(filename: str, state: dict):
             last_check_display = dt_utc.astimezone().strftime('%b %d, %Y, %I:%M:%S %p %Z')
         except ValueError:
             pass
-
-    extra = state.get('extra_details', '')
 
     html_out = f"""<!DOCTYPE html>
 <html lang="en">
@@ -199,23 +154,13 @@ def generate_status_html(filename: str, state: dict):
   <link rel="preconnect" href="https://rsms.me/" />
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
   <style>
-    body {{
-      font-family: 'Inter', sans-serif;
-    }}
+    body {{ font-family: 'Inter', sans-serif; }}
     @keyframes pulse-bg {{
       0%, 100% {{ opacity: 1; }}
       50% {{ opacity: 0.7; }}
     }}
-    .animate-pulse-bg {{
-      animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }}
-    .status-emoji {{
-      font-size: 1.5rem;
-      line-height: 1;
-      margin-right: 0.5rem;
-      display: inline-block;
-      vertical-align: middle;
-    }}
+    .animate-pulse-bg {{ animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }}
+    .status-emoji {{ font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }}
   </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
@@ -227,18 +172,15 @@ def generate_status_html(filename: str, state: dict):
         <code class="bg-gray-100 px-1 rounded font-mono">{html.escape(SITE_URL)}</code>
       </p>
     </header>
-
-    <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 {meta['bg_class']} {'animate-pulse-bg' if current_status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
+    <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500">
       <div class="flex items-center justify-between mb-4 flex-wrap">
-        <h2 class="text-xl font-medium flex items-center {meta['text_class']} mb-2 sm:mb-0">
-          <span class="status-emoji">{meta['emoji']}</span>
-          <span>How's it doing?</span>
-          <span id="status-text" class="ml-2 font-semibold">{html.escape(meta['headline'])}</span>
+        <h2 id="status-text" class="text-xl font-medium flex items-center mb-2 sm:mb-0">
+          <span class="status-emoji">{meta['emoji']}</span>{meta['headline']}
         </h2>
         <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
           Checked:
           <span id="last-checked-display">{html.escape(last_check_display)}</span>
-          {f'<span id="last-check-iso" style="display:none;">{html.escape(last_check_utc_str)}</span>' if last_check_utc_str else ''}
+          <span id="last-check-iso" style="display:none;">{html.escape(last_check_utc_str)}</span>
         </span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -247,67 +189,26 @@ def generate_status_html(filename: str, state: dict):
           <span id="response-time" class="font-semibold text-lg text-gray-800">{html.escape(last_rt_str)}</span>
         </div>
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-          <span class="text-gray-600 block text-xs mb-1">
-            Avg. Speed (Last {valid_count})
-          </span>
+          <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last {valid_count})</span>
           <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(avg_str)}</span>
         </div>
       </div>
-      {"".join([
-        f'<div class="text-xs text-center mt-3 {meta["text_class"]}"><p>({html.escape(extra)})</p></div>'
-      ]) if current_status in ["ERROR", "DOWN"] and extra else ""}
     </div>
-
     <div class="text-center mb-6 text-sm text-gray-600">
-      <p>
-        Approx. next check in:
-        <span id="countdown-timer" class="font-semibold">--:--</span>
-      </p>
-      <p class="text-xs text-gray-500">
-        (Refreshes roughly every {CHECK_INTERVAL_MIN} min by automation)
-      </p>
+      <p>Approx. next check in: <span id="countdown-timer" class="font-semibold">--:--</span></p>
+      <p class="text-xs text-gray-500">(Checks occur every {CHECK_INTERVAL_MIN} minutes)</p>
     </div>
-
+    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 mt-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">History</h2>
+      <ul id="history-list" class="list-disc pl-5"></ul>
+    </div>
     <div class="text-center text-xs text-gray-400 mt-6">
       Status as of: {html.escape(last_check_display)}.
     </div>
   </div>
+  <!-- Client-side scripts will update the status and history -->
+  <script src="script.js"></script>
 </body>
-<script>
-  const cdEl = document.getElementById('countdown-timer');
-  const lastCheckEl = document.getElementById('last-check-iso');
-  const intervalMs = {CHECK_INTERVAL_MIN} * 60 * 1000;
-
-  function updateCountdown() {{
-    if (!lastCheckEl || !cdEl) {{
-      return;
-    }}
-    const iso = lastCheckEl.textContent;
-    if (!iso) {{
-      cdEl.textContent = "--:--";
-      return;
-    }}
-    const startMillis = new Date(iso).getTime();
-    if (isNaN(startMillis)) {{
-      cdEl.textContent = "--:--";
-      return;
-    }}
-    const now = Date.now();
-    const nextCheck = startMillis + intervalMs;
-    const diff = nextCheck - now;
-
-    if (diff <= 0) {{
-      cdEl.textContent = "Soon...";
-    }} else {{
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const secs = Math.floor((diff % (1000 * 60)) / 1000);
-      cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
-    }}
-  }}
-
-  updateCountdown();
-  setInterval(updateCountdown, 1000);
-</script>
 </html>
 """
 
@@ -316,21 +217,20 @@ def generate_status_html(filename: str, state: dict):
             f.write(html_out)
         print(f"[INFO] HTML file generated: {filename}")
     except OSError as e:
-        print(f"[ERROR] Could not write HTML output. Reason: {e}")
+        print(f"[ERROR] Could not write HTML output: {e}")
 
 def run_monitor():
     """
-    Main check logic:
-      - Loads prior state
-      - Times a request to the site
-      - Determines if it's UP, SLOW, ERROR, or DOWN
-      - Updates streak counts and alert flags
-      - Saves the new state and history entry, then generates fresh HTML
+    Performs a single check:
+      - Loads previous state,
+      - Times a request to the site,
+      - Determines if the site is UP, SLOW, ERROR, or DOWN,
+      - Updates streak counters and alert flags,
+      - Saves the new state and appends to history,
+      - Generates the HTML page.
     """
-    print(f"{'-' * 28}\n[INFO] Starting check at UTC {datetime.now(timezone.utc).isoformat()}")
+    print(f"{'-'*28}\n[INFO] Starting check at UTC {datetime.now(timezone.utc).isoformat()}")
     state = load_state(STATE_DB_FILE)
-
-    # Extract prior state data
     stable_streak = state.get('stable_streak', 0)
     degraded_streak = state.get('degraded_streak', 0)
     alert_active = state.get('alert_active', False)
@@ -362,11 +262,9 @@ def run_monitor():
 
     print(f"[INFO] Result -> Status={new_status}, RespTime={response_duration:.2f}s, Info='{extra_info}'")
 
-    # Record response time only if the status is UP or SLOW
     record_time = response_duration if new_status in ("UP", "SLOW") else 0
     recent_times.append(record_time)
 
-    # Update streaks
     if new_status == "UP":
         stable_streak += 1
         degraded_streak = 0
@@ -374,13 +272,12 @@ def run_monitor():
         degraded_streak += 1
         stable_streak = 0
 
-    # Update alert flag
     if not alert_active and degraded_streak >= 2:
         alert_active = True
-        print("[INFO] Condition met to ENABLE alerts.")
+        print("[INFO] ENABLE alerts.")
     elif alert_active and stable_streak >= 3:
         alert_active = False
-        print("[INFO] Condition met to DISABLE alerts.")
+        print("[INFO] DISABLE alerts.")
 
     new_state = {
         'current_status': new_status,
@@ -393,18 +290,15 @@ def run_monitor():
         'recent_times': recent_times,
     }
     save_state(STATE_DB_FILE, new_state)
-
-    # Save history entry
     save_history({
         "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         "status": new_status
     })
-
-    # Generate the HTML status page
     generate_status_html(OUTPUT_HTML, new_state)
-
-    print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}")
-    print("-" * 28)
+    print(f"[INFO] Finished check at UTC {datetime.now(timezone.utc).isoformat()}\n{'-'*28}")
 
 if __name__ == "__main__":
-    run_monitor()
+    # Run continuously, checking every CHECK_INTERVAL_MIN minutes
+    while True:
+        run_monitor()
+        time.sleep(CHECK_INTERVAL_MIN * 60)

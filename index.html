@@ -39,91 +39,43 @@
 
     <div id="status-card" class="rounded-lg p-6 mb-6 transition-colors duration-500 bg-green-100">
       <div class="flex items-center justify-between mb-4 flex-wrap">
-        <h2 class="text-xl font-medium flex items-center text-green-700 mb-2 sm:mb-0">
-          <span class="status-emoji">✅</span>
-          <span>How's it doing?</span>
-          <span id="status-text" class="ml-2 font-semibold">All Good!</span>
+        <h2 id="status-text" class="text-xl font-medium flex items-center text-green-700 mb-2 sm:mb-0">
+          <span class="status-emoji">✅</span> All Good!
         </h2>
         <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
           Checked:
-          <span id="last-checked-display">Apr 02, 2025, 01:09:46 AM UTC</span>
-          <span id="last-check-iso" style="display:none;">2025-04-02T01:09:46.274622Z</span>
+          <span id="last-checked-display">Never</span>
+          <span id="last-check-iso" style="display:none;"></span>
         </span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
           <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-          <span id="response-time" class="font-semibold text-lg text-gray-800">0.45 s</span>
+          <span id="response-time" class="font-semibold text-lg text-gray-800">-- s</span>
         </div>
         <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-          <span class="text-gray-600 block text-xs mb-1">
-            Avg. Speed (Last 1)
-            Avg. Speed (Last 1)
-          </span>
-          <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.45 s</span>
+          <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last)</span>
+          <span id="avg-speed" class="font-semibold text-lg text-gray-800">-- s</span>
         </div>
       </div>
     </div>
 
     <div class="text-center mb-6 text-sm text-gray-600">
-      <p>
-        Approx. next check in:
-        <span id="countdown-timer" class="font-semibold">--:--</span>
-      </p>
-      <p class="text-xs text-gray-500">
-        (Refreshes roughly every 5 min by automation)
-      </p>
+      <p>Approx. next check in: <span id="countdown-timer" class="font-semibold">--:--</span></p>
+      <p class="text-xs text-gray-500">(Checks occur every 5 minutes)</p>
     </div>
 
-    <!-- History Section -->
     <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 mt-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">History</h2>
       <ul id="history-list" class="list-disc pl-5"></ul>
     </div>
 
     <div class="text-center text-xs text-gray-400 mt-6">
-      Status as of: Apr 02, 2025, 01:09:46 AM UTC.
+      Status as of: <span id="status-timestamp">Never</span>
     </div>
   </div>
 
-  <!-- Countdown Timer Script -->
-  <script>
-    const cdEl = document.getElementById('countdown-timer');
-    const lastCheckEl = document.getElementById('last-check-iso');
-    const intervalMs = 5 * 60 * 1000;
-
-    function updateCountdown() {
-      if (!lastCheckEl || !cdEl) {
-        return;
-      }
-      const iso = lastCheckEl.textContent;
-      if (!iso) {
-        cdEl.textContent = "--:--";
-        return;
-      }
-      const startMillis = new Date(iso).getTime();
-      if (isNaN(startMillis)) {
-        cdEl.textContent = "--:--";
-        return;
-      }
-      const now = Date.now();
-      const nextCheck = startMillis + intervalMs;
-      const diff = nextCheck - now;
-
-      if (diff <= 0) {
-        cdEl.textContent = "Soon...";
-      } else {
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        cdEl.textContent = String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
-      }
-    }
-
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-  </script>
-  <!-- Include the history script -->
+  <!-- Include the update script -->
   <script src="script.js"></script>
 </body>
 </html>
