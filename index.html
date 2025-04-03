@@ -12,16 +12,10 @@
         @keyframes pulse-bg { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .animate-pulse-bg { animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         .status-emoji { font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }
-        /* Basic table styling */
         .history-table th, .history-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; }
         .history-table th { background-color: #f9fafb; text-align: left; font-weight: 500; color: #374151; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .history-table tr:last-child td { border-bottom: none; }
-        /* Status colors for history table text */
-        .text-green-600 { color: #16a34a; }
-        .text-yellow-600 { color: #d97706; }
-        .text-orange-600 { color: #ea580c; }
-        .text-red-600 { color: #dc2626; }
-        .text-gray-500 { color: #6b7280; }
+        .text-green-600 { color: #16a34a; } .text-yellow-600 { color: #d97706; } .text-orange-600 { color: #ea580c; } .text-red-600 { color: #dc2626; } .text-gray-500 { color: #6b7280; }
     </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
@@ -38,27 +32,35 @@
                     <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">All Good!</span>
                 </h2>
                 <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-                    Checked: <span id="last-checked-display">Apr 03, 2025, 03:52:27 PM UTC</span>
+                    Checked: <span id="last-checked-display">Apr 03, 2025, 12:13:35 PM EDT</span>
                 </span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.34 s</span>
+                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.38 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 2)</span>
-                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.41 s</span>
+                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 3)</span>
+                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.40 s</span>
                 </div>
             </div>
              
         </div>
 
         <section class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last 2 Checks)</h2>
-            <div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (Local)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last 3 Checks)</h2>
+            <div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (America/New_York)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">
         <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Apr 03, 03:52:27 PM</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Apr 03, 12:13:35 PM EDT</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
+                ✅ UP
+            </td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.38 s</td>
+            <td class="px-3 py-2 text-sm text-gray-500"></td>
+        </tr>
+        <tr>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Apr 03, 11:52:27 AM EDT</td>
             <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
                 ✅ UP
             </td>
@@ -66,7 +68,7 @@
             <td class="px-3 py-2 text-sm text-gray-500"></td>
         </tr>
         <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Apr 03, 03:42:33 PM</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Apr 03, 11:42:33 AM EDT</td>
             <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
                 ✅ UP
             </td>
