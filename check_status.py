@@ -1,5 +1,5 @@
-# SimplePractice Status Snitch - GitHub Action Version (with History)
-# Stores history in status.json, calculates Avg Speed, updates UI.
+# SimplePractice Status Snitch - GitHub Action Version (with History & EST/EDT)
+# Stores history, calculates Avg Speed, updates UI with Eastern Time display.
 
 import requests
 import time
@@ -7,16 +7,18 @@ from datetime import datetime, timezone, timedelta
 import json
 import os
 import html
+import pytz # Import pytz for timezone handling
 
 # === CONFIGURATION ===
 URL = "https://account.simplepractice.com/"
 TIMEOUT_SECONDS = 15
 SLOW_THRESHOLD = 2.0
-STATE_FILE = "status.json" # File to store status between runs
-OUTPUT_HTML_FILE = "index.html" # HTML file to be served by GitHub Pages
-CHECK_INTERVAL_MINUTES = 5 # For display/info purposes
-MAX_RESPONSE_TIMES_TO_KEEP = 3 # For calculating average speed
-MAX_HISTORY_RECORDS = 50 # How many historical checks to store and display
+STATE_FILE = "status.json"
+OUTPUT_HTML_FILE = "index.html"
+CHECK_INTERVAL_MINUTES = 5
+MAX_RESPONSE_TIMES_TO_KEEP = 3
+MAX_HISTORY_RECORDS = 50
+TARGET_TIMEZONE = 'America/New_York' # Timezone for display
 
 # === STATUS INFO (for display) ===
 STATUS_INFO = {
@@ -37,20 +39,16 @@ def load_previous_state(filename):
         'recent_response_times': [], 'history': []
     }
     try:
-        # Ensure file exists before trying to open
         if not os.path.exists(filename):
              print(f"State file '{filename}' not found, starting fresh.")
              return default_state
         with open(filename, 'r') as f:
             state = json.load(f)
-            # Ensure all keys exist, using defaults if missing
-            for key, default_value in default_state.items():
-                state.setdefault(key, default_value)
-            # Ensure lists are lists and trim them
+            for key, default_value in default_state.items(): state.setdefault(key, default_value)
             if not isinstance(state.get('recent_response_times'), list): state['recent_response_times'] = []
             state['recent_response_times'] = state['recent_response_times'][-MAX_RESPONSE_TIMES_TO_KEEP:]
             if not isinstance(state.get('history'), list): state['history'] = []
-            state['history'] = state['history'][-MAX_HISTORY_RECORDS:] # Keep only last N history records on load
+            state['history'] = state['history'][-MAX_HISTORY_RECORDS:]
             print(f"Loaded previous state (History items: {len(state['history'])})")
             return state
     except (FileNotFoundError, json.JSONDecodeError, TypeError) as e:
@@ -60,17 +58,14 @@ def load_previous_state(filename):
 def save_current_state(filename, state_data):
     """Saves the current state (including history) to the state file."""
     try:
-        # Ensure lists are lists and trim them before saving
         times = state_data.get('recent_response_times', [])
         if not isinstance(times, list): times = []
         state_data['recent_response_times'] = times[-MAX_RESPONSE_TIMES_TO_KEEP:]
-
         history = state_data.get('history', [])
         if not isinstance(history, list): history = []
-        state_data['history'] = history[-MAX_HISTORY_RECORDS:] # Keep only last N history records on save
-
+        state_data['history'] = history[-MAX_HISTORY_RECORDS:]
         with open(filename, 'w') as f:
-            json.dump(state_data, f, indent=2) # Use indent=2 for slightly smaller file
+            json.dump(state_data, f, indent=2)
         print(f"Saved current state to {filename} (History items: {len(state_data['history'])})")
     except IOError as e:
         print(f"Error saving state file '{filename}': {e}")
@@ -82,26 +77,26 @@ def calculate_average_speed(times_list):
         for t in times_list:
             try:
                 time_float = float(t)
-                # Consider only positive times less than timeout as valid for averaging
-                if time_float > 0 and time_float < TIMEOUT_SECONDS:
-                    valid_times.append(time_float)
-            except (ValueError, TypeError):
-                continue # Skip non-numeric or invalid entries
-
-    if not valid_times:
-        return 0, 0 # Return average and count
-    return sum(valid_times) / len(valid_times), len(valid_times) # Return average and count
+                if time_float > 0 and time_float < TIMEOUT_SECONDS: valid_times.append(time_float)
+            except (ValueError, TypeError): continue
+    if not valid_times: return 0, 0
+    return sum(valid_times) / len(valid_times), len(valid_times)
 
 def generate_html(filename, state_data):
     """Generates the index.html file with current status and history table."""
 
-    # --- Get Latest Status Data (from the last history entry if available) ---
-    history = state_data.get('history', [])
-    latest_check_data = history[-1] if history else {} # Get the most recent check details
+    # --- Get Timezone Object ---
+    try:
+        eastern_tz = pytz.timezone(TARGET_TIMEZONE)
+    except pytz.UnknownTimeZoneError:
+        print(f"Error: Unknown timezone '{TARGET_TIMEZONE}'. Defaulting to UTC.")
+        eastern_tz = timezone.utc # Fallback to UTC
 
+    # --- Get Latest Status Data ---
+    history = state_data.get('history', [])
+    latest_check_data = history[-1] if history else {}
     status = latest_check_data.get('status', 'UNKNOWN')
     info = STATUS_INFO.get(status, STATUS_INFO["UNKNOWN"])
-
     response_time = latest_check_data.get('response_time', 0)
     response_time_str = f"{response_time:.2f} s" if status != 'UNKNOWN' and isinstance(response_time, (int, float)) and response_time >= 0 else "-- s"
 
@@ -110,43 +105,47 @@ def generate_html(filename, state_data):
     average_speed, valid_avg_count = calculate_average_speed(recent_times)
     average_speed_str = f"{average_speed:.2f} s" if average_speed > 0 else "-- s"
 
-    # --- Prepare Timestamp ---
-    last_check_utc_str = latest_check_data.get('timestamp', state_data.get('last_check_timestamp_utc')) # Use timestamp from latest check
-    last_check_dt_utc = None
+    # --- Prepare Timestamp (Convert to Eastern Time) ---
+    last_check_utc_str = latest_check_data.get('timestamp', state_data.get('last_check_timestamp_utc'))
     last_check_local_str = "Never"
     if last_check_utc_str:
         try:
-            last_check_dt_utc = datetime.fromisoformat(last_check_utc_str.replace('Z', '+00:00'))
-            # Format timestamp more nicely (e.g., "Apr 03, 2025, 11:26 AM EDT")
-            last_check_local_str = last_check_dt_utc.astimezone().strftime('%b %d, %Y, %I:%M:%S %p %Z')
-        except ValueError:
+            # Parse ISO string, make it UTC aware
+            last_check_dt_utc = datetime.fromisoformat(last_check_utc_str.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+            # Convert to target timezone
+            last_check_dt_local = last_check_dt_utc.astimezone(eastern_tz)
+            # Format timestamp nicely (e.g., "Apr 03, 2025, 11:26:15 AM EDT")
+            # %Z should correctly show EST or EDT based on the date and pytz data
+            last_check_local_str = last_check_dt_local.strftime('%b %d, %Y, %I:%M:%S %p %Z')
+        except (ValueError, TypeError) as e:
+            print(f"Error formatting main timestamp: {e}")
             last_check_local_str = "Invalid date"
 
-    # --- Generate History Table Rows ---
+    # --- Generate History Table Rows (Convert to Eastern Time) ---
     history_rows_html = ""
-    # Iterate in reverse for display (newest first)
     for check in reversed(history):
         hist_status = check.get('status', 'UNKNOWN')
         hist_info = STATUS_INFO.get(hist_status, STATUS_INFO["UNKNOWN"])
         hist_resp_time = check.get('response_time', 0)
-        # Ensure response time is treated as a number for formatting
         try:
             hist_resp_time_float = float(hist_resp_time)
-            # Display '-- s' if status was unknown or time is negative (shouldn't happen but safe)
             hist_resp_time_str = f"{hist_resp_time_float:.2f} s" if hist_status != 'UNKNOWN' and hist_resp_time_float >= 0 else "-- s"
-        except (ValueError, TypeError):
-             hist_resp_time_str = "-- s" # Handle non-numeric case
+        except (ValueError, TypeError): hist_resp_time_str = "-- s"
 
         hist_extra = check.get('extra_info', '')
         hist_ts_str = check.get('timestamp', '')
         hist_local_str_short = "N/A"
         if hist_ts_str:
             try:
-                hist_dt = datetime.fromisoformat(hist_ts_str.replace('Z', '+00:00'))
-                # Shorter format for history table (e.g., "Apr 03, 11:26:15 AM")
-                hist_local_str_short = hist_dt.astimezone().strftime('%b %d, %I:%M:%S %p')
-            except ValueError:
-                hist_local_str_short = "Invalid Date"
+                # Parse ISO string, make it UTC aware
+                hist_dt_utc = datetime.fromisoformat(hist_ts_str.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+                # Convert to target timezone
+                hist_dt_local = hist_dt_utc.astimezone(eastern_tz)
+                # Shorter format for history table (e.g., "Apr 03, 11:26:15 AM EDT")
+                hist_local_str_short = hist_dt_local.strftime('%b %d, %I:%M:%S %p %Z')
+            except (ValueError, TypeError) as e:
+                 print(f"Error formatting history timestamp: {e}")
+                 hist_local_str_short = "Invalid Date"
 
         history_rows_html += f"""
         <tr>
@@ -159,6 +158,7 @@ def generate_html(filename, state_data):
         </tr>"""
 
     # --- Main HTML Structure ---
+    # (HTML structure remains the same as check_status_py_final, only content changes)
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,16 +173,10 @@ def generate_html(filename, state_data):
         @keyframes pulse-bg {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.7; }} }}
         .animate-pulse-bg {{ animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }}
         .status-emoji {{ font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }}
-        /* Basic table styling */
         .history-table th, .history-table td {{ padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; }}
         .history-table th {{ background-color: #f9fafb; text-align: left; font-weight: 500; color: #374151; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }}
         .history-table tr:last-child td {{ border-bottom: none; }}
-        /* Status colors for history table text */
-        .text-green-600 {{ color: #16a34a; }}
-        .text-yellow-600 {{ color: #d97706; }}
-        .text-orange-600 {{ color: #ea580c; }}
-        .text-red-600 {{ color: #dc2626; }}
-        .text-gray-500 {{ color: #6b7280; }}
+        .text-green-600 {{ color: #16a34a; }} .text-yellow-600 {{ color: #d97706; }} .text-orange-600 {{ color: #ea580c; }} .text-red-600 {{ color: #dc2626; }} .text-gray-500 {{ color: #6b7280; }}
     </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
@@ -217,7 +211,7 @@ def generate_html(filename, state_data):
 
         <section class="mb-6">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last {len(history)} Checks)</h2>
-            {f'<div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (Local)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{history_rows_html}</tbody></table></div>' if history else '<p class="text-gray-500">No historical data available yet.</p>'}
+            {f'<div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp ({TARGET_TIMEZONE})</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{history_rows_html}</tbody></table></div>' if history else '<p class="text-gray-500">No historical data available yet.</p>'}
         </section>
 
         <div class="text-center text-xs text-gray-400 mt-8">
@@ -235,16 +229,13 @@ def generate_html(filename, state_data):
         print(f"Error writing HTML file '{filename}': {e}")
 
 
-# === MAIN CHECK LOGIC ===
+# === MAIN CHECK LOGIC === (No changes needed from previous history version)
 def perform_check():
     """Performs one status check, updates state including history, and generates output."""
     print("-" * 30)
     check_timestamp_utc = datetime.now(timezone.utc)
     print(f"Starting check at {check_timestamp_utc.isoformat()}")
-
-    # Load previous state
     prev_state = load_previous_state(STATE_FILE)
-    # Ensure these are lists, even if loaded state is corrupted/missing keys
     recent_times = prev_state.get('recent_response_times', [])
     if not isinstance(recent_times, list): recent_times = []
     history = prev_state.get('history', [])
@@ -252,16 +243,13 @@ def perform_check():
     stable_count = prev_state.get('stable_count', 0)
     degraded_count = prev_state.get('degraded_count', 0)
     alert_mode = prev_state.get('alert_mode', False)
-
-    # --- Perform the check ---
     start_time = time.time()
     current_status = "UNKNOWN"
-    response_time = 0 # Default to 0 for calculations if check fails
+    response_time = 0
     extra_info = None
-
     try:
         response = requests.get(URL, timeout=TIMEOUT_SECONDS)
-        response_time = time.time() - start_time # Capture actual response time
+        response_time = time.time() - start_time
         status_code = response.status_code
         if status_code == 200:
             current_status = "SLOW" if response_time > SLOW_THRESHOLD else "UP"
@@ -274,61 +262,31 @@ def perform_check():
     except Exception as e:
         current_status = "ERROR"; response_time = 0; extra_info = f"Unexpected error: {type(e).__name__}"
         print(f"!!! Unexpected error during check: {e}")
-
     print(f"Check result: Status={current_status}, ResponseTime={response_time:.2f}s, Extra='{extra_info}'")
-
-    # --- Create current check record ---
-    # Store response_time as float, ensure extra_info is string or None
     current_check_record = {
-        'timestamp': check_timestamp_utc.isoformat().replace('+00:00', 'Z'), # Store consistent ISO UTC
+        'timestamp': check_timestamp_utc.isoformat().replace('+00:00', 'Z'),
         'status': current_status,
-        'response_time': float(f"{response_time:.3f}") if isinstance(response_time, (int, float)) else 0.0, # Store specific precision
+        'response_time': float(f"{response_time:.3f}") if isinstance(response_time, (int, float)) else 0.0,
         'extra_info': str(extra_info) if extra_info is not None else None
     }
-
-    # --- Update history list ---
     history.append(current_check_record)
-    # Keep only the last N records (use slicing for efficiency)
     history = history[-MAX_HISTORY_RECORDS:]
-
-    # --- Update recent response times list ---
-    # Use the actual response time for average calculation, even if 0 for errors/downs
-    recent_times.append(response_time)
-    # Keep only the last N times
+    current_time_for_avg = response_time if current_status in ["UP", "SLOW"] else 0
+    recent_times.append(current_time_for_avg)
     recent_times = recent_times[-MAX_RESPONSE_TIMES_TO_KEEP:]
-
-    # --- Update State Counters ---
     if current_status == "UP": stable_count += 1; degraded_count = 0
     else: degraded_count += 1; stable_count = 0
-
-    # --- Update Alert Mode ---
     new_alert_mode = alert_mode
     if not alert_mode and degraded_count >= 2: new_alert_mode = True; print("Condition met to enter ALERT mode.")
     elif alert_mode and stable_count >= 3: new_alert_mode = False; print("Condition met to exit ALERT mode.")
-
-    # --- Prepare data for saving ---
-    # Note: We save the full history list in the state file
     current_state_data = {
-        # Keep latest status easily accessible at top level if needed elsewhere (redundant with history[-1])
-        'status': current_status,
-        'response_time': response_time,
-        'extra_info': extra_info,
-        # State counters (optional, could be derived from history if needed)
-        'stable_count': stable_count,
-        'degraded_count': degraded_count,
-        'alert_mode': new_alert_mode,
-        # Timestamp of the very last check
+        'status': current_status, 'response_time': response_time, 'extra_info': extra_info,
+        'stable_count': stable_count, 'degraded_count': degraded_count, 'alert_mode': new_alert_mode,
         'last_check_timestamp_utc': current_check_record['timestamp'],
-        # Data for metrics/history display
-        'recent_response_times': recent_times,
-        'history': history # Save updated history list
+        'recent_response_times': recent_times, 'history': history
     }
-
-    # --- Save state and generate HTML ---
     save_current_state(STATE_FILE, current_state_data)
-    # Pass the full state data to HTML generator, it will extract what it needs
     generate_html(OUTPUT_HTML_FILE, current_state_data)
-
     print(f"Finished check processing at {datetime.now(timezone.utc).isoformat()}")
     print("-" * 30)
 
