@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import json
 import os
 import html
-import pytz # Import pytz for timezone handling
+import pytz  # Import pytz for timezone handling
 
 # === CONFIGURATION ===
 URL = "https://account.simplepractice.com/"
@@ -157,6 +157,46 @@ def generate_html(filename, state_data):
             <td class="px-3 py-2 text-sm text-gray-500">{html.escape(hist_extra or '')}</td>
         </tr>"""
 
+    # --- Prepare Data for Graph and Weekly Averages ---
+    graph_labels = []
+    graph_times = []
+    week_sums = {}
+    week_counts = {}
+    for check in sorted(history, key=lambda c: c.get('timestamp', '')):
+        ts = check.get('timestamp')
+        rt = check.get('response_time', 0)
+        label = ""
+        if ts:
+            try:
+                dt_local = (
+                    datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                    .replace(tzinfo=timezone.utc)
+                    .astimezone(eastern_tz)
+                )
+                label = dt_local.strftime('%m/%d %H:%M')
+                year, week_num, _ = dt_local.isocalendar()
+                week_key = f"{year}-W{week_num:02d}"
+                if isinstance(rt, (int, float)) and 0 < rt < TIMEOUT_SECONDS:
+                    week_sums.setdefault(week_key, 0.0)
+                    week_counts.setdefault(week_key, 0)
+                    week_sums[week_key] += float(rt)
+                    week_counts[week_key] += 1
+            except Exception as e:
+                print(f"Error preparing graph data: {e}")
+                label = ts
+        graph_labels.append(label)
+        graph_times.append(float(rt) if isinstance(rt, (int, float)) else 0.0)
+
+    weekly_rows_html = ""
+    for wk in sorted(week_sums):
+        count = week_counts.get(wk, 0)
+        if count:
+            avg = week_sums[wk] / count
+            weekly_rows_html += (
+                f"<tr><td class='px-3 py-2 text-sm text-gray-500'>{wk}</td>"
+                f"<td class='px-3 py-2 text-sm text-gray-500'>{avg:.2f} s</td></tr>"
+            )
+
     # --- Main HTML Structure ---
     # (HTML structure remains the same as check_status_py_final, only content changes)
     html_content = f"""<!DOCTYPE html>
@@ -166,6 +206,7 @@ def generate_html(filename, state_data):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SimplePractice Status ✨</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <style>
@@ -214,10 +255,29 @@ def generate_html(filename, state_data):
             {f'<div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp ({TARGET_TIMEZONE})</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{history_rows_html}</tbody></table></div>' if history else '<p class="text-gray-500">No historical data available yet.</p>'}
         </section>
 
+        <section class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Response Time Trend</h2>
+            <canvas id="history-chart" class="w-full" height="120"></canvas>
+        </section>
+
+        <section class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Weekly Averages</h2>
+            {f'<div class="overflow-x-auto rounded-lg border border-gray-200"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th>Week</th><th>Avg. Load Time</th></tr></thead><tbody>{weekly_rows_html}</tbody></table></div>' if weekly_rows_html else '<p class="text-gray-500">Not enough data for weekly averages.</p>'}
+        </section>
+
         <div class="text-center text-xs text-gray-400 mt-8">
             Status checks run automatically every {CHECK_INTERVAL_MINUTES} minutes via GitHub Actions. Page data reflects the last completed check.
         </div>
     </div>
+    <script>
+        const chartLabels = {json.dumps(graph_labels)};
+        const chartTimes = {json.dumps(graph_times)};
+        new Chart(document.getElementById('history-chart'), {{
+            type: 'line',
+            data: {{ labels: chartLabels, datasets: [{{ label: 'Load Time (s)', data: chartTimes, borderColor: 'rgb(34, 197, 94)', tension: 0.1, fill: false }}] }},
+            options: {{ scales: {{ y: {{ beginAtZero: true }} }} , plugins: {{ legend: {{ display: false }} }} }}
+        }});
+    </script>
 </body>
 </html>"""
 
@@ -289,6 +349,7 @@ def perform_check():
     generate_html(OUTPUT_HTML_FILE, current_state_data)
     print(f"Finished check processing at {datetime.now(timezone.utc).isoformat()}")
     print("-" * 30)
+
 
 # === SCRIPT EXECUTION ===
 if __name__ == "__main__":
