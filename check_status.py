@@ -3,7 +3,7 @@
 
 import requests
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import json
 import os
 import html
@@ -40,8 +40,8 @@ def load_previous_state(filename):
     }
     try:
         if not os.path.exists(filename):
-             print(f"State file '{filename}' not found, starting fresh.")
-             return default_state
+            print(f"State file '{filename}' not found, starting fresh.")
+            return default_state
         with open(filename, 'r') as f:
             state = json.load(f)
             for key, default_value in default_state.items(): state.setdefault(key, default_value)
@@ -144,8 +144,8 @@ def generate_html(filename, state_data):
                 # Shorter format for history table (e.g., "Apr 03, 11:26:15 AM EDT")
                 hist_local_str_short = hist_dt_local.strftime('%b %d, %I:%M:%S %p %Z')
             except (ValueError, TypeError) as e:
-                 print(f"Error formatting history timestamp: {e}")
-                 hist_local_str_short = "Invalid Date"
+                print(f"Error formatting history timestamp: {e}")
+                hist_local_str_short = "Invalid Date"
 
         history_rows_html += f"""
         <tr>
