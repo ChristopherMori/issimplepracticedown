@@ -220,14 +220,14 @@ def generate_html(filename, state_data):
         .text-green-600 {{ color: #16a34a; }} .text-yellow-600 {{ color: #d97706; }} .text-orange-600 {{ color: #ea580c; }} .text-red-600 {{ color: #dc2626; }} .text-gray-500 {{ color: #6b7280; }}
     </style>
 </head>
-<body class="bg-gray-100 p-4 md:p-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+<body class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white/80 backdrop-blur-lg rounded-xl shadow-2xl p-6 md:p-10">
         <header class="mb-6 text-center">
-            <h1 class="text-3xl font-bold text-gray-800 mb-1">Status Snitch! ✨</h1>
-            <p class="text-sm text-gray-500">Keeping an eye on: <code class="bg-gray-100 px-1 rounded font-mono">{html.escape(URL)}</code></p>
+            <h1 class="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text mb-2">Status Snitch ✨</h1>
+            <p class="text-sm text-gray-700">Keeping an eye on: <code class="bg-white/70 px-1 rounded font-mono">{html.escape(URL)}</code></p>
         </header>
 
-        <div id="status-card" class="rounded-lg p-6 mb-8 transition-colors duration-500 {info['card_bg_class']} {'animate-pulse-bg' if status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
+        <div id="status-card" class="rounded-lg p-6 mb-8 shadow-lg transition transform duration-500 {info['card_bg_class']} {'animate-pulse-bg' if status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
             <div class="flex items-center justify-between mb-4 flex-wrap">
                 <h2 class="text-xl font-medium flex items-center {info['text_color']} mb-2 sm:mb-0">
                     <span class="status-emoji">{info['emoji']}</span>
