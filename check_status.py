@@ -8,19 +8,32 @@ import json
 import os
 import html
 import pytz  # Import pytz for timezone handling
+import yaml
+import sqlite3
+import smtplib
+from email.mime.text import MIMEText
 
 # === CONFIGURATION ===
-URL = "https://account.simplepractice.com/"
-TIMEOUT_SECONDS = 15
-SLOW_THRESHOLD = 2.0
-STATE_FILE = "status.json"
-OUTPUT_HTML_FILE = "index.html"
-CHECK_INTERVAL_MINUTES = 5
+CONFIG_FILE = os.environ.get('CONFIG_FILE', 'config.yaml')
+try:
+    with open(CONFIG_FILE, 'r') as f:
+        _CFG = yaml.safe_load(f) or {}
+except Exception:
+    _CFG = {}
+
+URLS = _CFG.get('urls', [{'url': os.environ.get('URL', 'https://account.simplepractice.com/'),
+                          'expected_keyword': os.environ.get('EXPECTED_KEYWORD')}])
+TIMEOUT_SECONDS = _CFG.get('timeout_seconds', int(os.environ.get('TIMEOUT_SECONDS', 15)))
+SLOW_THRESHOLD = _CFG.get('slow_threshold', float(os.environ.get('SLOW_THRESHOLD', 2.0)))
+STATE_FILE = _CFG.get('state_file', os.environ.get('STATE_FILE', 'status.json'))
+DB_FILE = _CFG.get('db_file', os.environ.get('DB_FILE', 'status.db'))
+OUTPUT_HTML_FILE = _CFG.get('output_html_file', os.environ.get('OUTPUT_HTML_FILE', 'index.html'))
+CHECK_INTERVAL_MINUTES = _CFG.get('check_interval_minutes', int(os.environ.get('CHECK_INTERVAL_MINUTES', 5)))
 MAX_RESPONSE_TIMES_TO_KEEP = 3
 MAX_HISTORY_RECORDS = 50
-TARGET_TIMEZONE = 'America/New_York' # Timezone for display
-EXPECTED_KEYWORD = os.getenv('EXPECTED_KEYWORD')
-SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL')
+TARGET_TIMEZONE = _CFG.get('timezone', os.environ.get('TARGET_TIMEZONE', 'America/New_York'))
+SLACK_WEBHOOK_URL = _CFG.get('slack_webhook_url', os.environ.get('SLACK_WEBHOOK_URL'))
+EMAIL_CFG = _CFG.get('email', {})
 
 # === STATUS INFO (for display) ===
 STATUS_INFO = {
@@ -31,31 +44,36 @@ STATUS_INFO = {
     "UNKNOWN": {"emoji": "❓", "text": "Unknown", "card_bg_class": "bg-gray-100", "text_color": "text-gray-700", "history_class": "text-gray-500"},
 }
 
+DEFAULT_STATE = {
+    'status': 'UNKNOWN', 'stable_count': 0, 'degraded_count': 0, 'alert_mode': False,
+    'last_check_timestamp_utc': None, 'response_time': 0, 'extra_info': '',
+    'recent_response_times': [], 'history': []
+}
+
 # === HELPER FUNCTIONS ===
 
 def load_previous_state(filename):
     """Loads state including history and recent response times."""
-    default_state = {
-        'status': 'UNKNOWN', 'stable_count': 0, 'degraded_count': 0, 'alert_mode': False,
-        'last_check_timestamp_utc': None, 'response_time': 0, 'extra_info': '',
-        'recent_response_times': [], 'history': []
-    }
+    state = DEFAULT_STATE.copy()
     try:
         if not os.path.exists(filename):
             print(f"State file '{filename}' not found, starting fresh.")
-            return default_state
-        with open(filename, 'r') as f:
-            state = json.load(f)
-            for key, default_value in default_state.items(): state.setdefault(key, default_value)
-            if not isinstance(state.get('recent_response_times'), list): state['recent_response_times'] = []
-            state['recent_response_times'] = state['recent_response_times'][-MAX_RESPONSE_TIMES_TO_KEEP:]
-            if not isinstance(state.get('history'), list): state['history'] = []
-            state['history'] = state['history'][-MAX_HISTORY_RECORDS:]
-            print(f"Loaded previous state (History items: {len(state['history'])})")
             return state
-    except (FileNotFoundError, json.JSONDecodeError, TypeError) as e:
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        for key, default_value in DEFAULT_STATE.items():
+            state[key] = data.get(key, default_value)
+        if not isinstance(state.get('recent_response_times'), list):
+            state['recent_response_times'] = []
+        state['recent_response_times'] = state['recent_response_times'][-MAX_RESPONSE_TIMES_TO_KEEP:]
+        if not isinstance(state.get('history'), list):
+            state['history'] = []
+        state['history'] = state['history'][-MAX_HISTORY_RECORDS:]
+        print(f"Loaded previous state (History items: {len(state['history'])})")
+        return state
+    except Exception as e:
         print(f"State file '{filename}' not found or invalid, starting fresh. Error: {e}")
-        return default_state
+        return DEFAULT_STATE.copy()
 
 def save_current_state(filename, state_data):
     """Saves the current state (including history) to the state file."""
@@ -95,213 +113,103 @@ def send_slack_notification(message):
     except Exception as e:
         print(f"Slack notification error: {e}")
 
-def generate_html(filename, state_data):
-    """Generates the index.html file with current status and history table."""
-
-    # --- Get Timezone Object ---
+def send_email_notification(subject, body):
+    """Send an email alert using settings from config."""
+    if not EMAIL_CFG.get('host') or not EMAIL_CFG.get('recipient'):
+        return
     try:
-        eastern_tz = pytz.timezone(TARGET_TIMEZONE)
-    except pytz.UnknownTimeZoneError:
-        print(f"Error: Unknown timezone '{TARGET_TIMEZONE}'. Defaulting to UTC.")
-        eastern_tz = timezone.utc # Fallback to UTC
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = EMAIL_CFG.get('username', '')
+        msg['To'] = EMAIL_CFG['recipient']
+        with smtplib.SMTP(EMAIL_CFG.get('host'), int(EMAIL_CFG.get('port', 587))) as smtp:
+            smtp.starttls()
+            if EMAIL_CFG.get('username'):
+                smtp.login(EMAIL_CFG.get('username'), EMAIL_CFG.get('password', ''))
+            smtp.send_message(msg)
+    except Exception as e:
+        print(f"Email notification error: {e}")
 
-    # --- Get Latest Status Data ---
-    history = state_data.get('history', [])
-    latest_check_data = history[-1] if history else {}
-    status = latest_check_data.get('status', 'UNKNOWN')
-    info = STATUS_INFO.get(status, STATUS_INFO["UNKNOWN"])
-    response_time = latest_check_data.get('response_time', 0)
-    response_time_str = f"{response_time:.2f} s" if status != 'UNKNOWN' and isinstance(response_time, (int, float)) and response_time >= 0 else "-- s"
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS history (
+        url TEXT,
+        timestamp TEXT,
+        status TEXT,
+        response_time REAL,
+        extra_info TEXT
+    )"""
+    )
+    conn.commit()
+    conn.close()
 
-    uptime_percent = 0.0
-    if history:
-        up_count = sum(1 for h in history if h.get('status') in ['UP', 'SLOW'])
-        uptime_percent = (up_count / len(history)) * 100
+def record_to_db(url, record):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO history (url, timestamp, status, response_time, extra_info) VALUES (?, ?, ?, ?, ?)",
+            (url, record.get('timestamp'), record.get('status'), record.get('response_time'), record.get('extra_info')),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DB insert error: {e}")
 
-    # --- Calculate Average Speed ---
-    recent_times = state_data.get('recent_response_times', [])
-    average_speed, valid_avg_count = calculate_average_speed(recent_times)
-    average_speed_str = f"{average_speed:.2f} s" if average_speed > 0 else "-- s"
+def load_all_states(filename):
+    if not os.path.exists(filename):
+        return {}
+    try:
+        with open(filename, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading state file '{filename}': {e}")
+        return {}
 
-    # --- Prepare Timestamp (Convert to Eastern Time) ---
-    last_check_utc_str = latest_check_data.get('timestamp', state_data.get('last_check_timestamp_utc'))
-    last_check_local_str = "Never"
-    if last_check_utc_str:
-        try:
-            # Parse ISO string, make it UTC aware
-            last_check_dt_utc = datetime.fromisoformat(last_check_utc_str.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
-            # Convert to target timezone
-            last_check_dt_local = last_check_dt_utc.astimezone(eastern_tz)
-            # Format timestamp nicely (e.g., "Apr 03, 2025, 11:26:15 AM EDT")
-            # %Z should correctly show EST or EDT based on the date and pytz data
-            last_check_local_str = last_check_dt_local.strftime('%b %d, %Y, %I:%M:%S %p %Z')
-        except (ValueError, TypeError) as e:
-            print(f"Error formatting main timestamp: {e}")
-            last_check_local_str = "Invalid date"
+def save_all_states(filename, states):
+    try:
+        with open(filename, 'w') as f:
+            json.dump(states, f, indent=2)
+    except Exception as e:
+        print(f"Error saving state file '{filename}': {e}")
 
-    # --- Generate History Table Rows (Convert to Eastern Time) ---
-    history_rows_html = ""
-    for check in reversed(history):
-        hist_status = check.get('status', 'UNKNOWN')
-        hist_info = STATUS_INFO.get(hist_status, STATUS_INFO["UNKNOWN"])
-        hist_resp_time = check.get('response_time', 0)
-        try:
-            hist_resp_time_float = float(hist_resp_time)
-            hist_resp_time_str = f"{hist_resp_time_float:.2f} s" if hist_status != 'UNKNOWN' and hist_resp_time_float >= 0 else "-- s"
-        except (ValueError, TypeError): hist_resp_time_str = "-- s"
+def generate_html(filename, states):
+    """Generate a simple HTML dashboard summarizing multiple URLs."""
 
-        hist_extra = check.get('extra_info', '')
-        hist_ts_str = check.get('timestamp', '')
-        hist_local_str_short = "N/A"
-        if hist_ts_str:
-            try:
-                # Parse ISO string, make it UTC aware
-                hist_dt_utc = datetime.fromisoformat(hist_ts_str.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
-                # Convert to target timezone
-                hist_dt_local = hist_dt_utc.astimezone(eastern_tz)
-                # Shorter format for history table (e.g., "Apr 03, 11:26:15 AM EDT")
-                hist_local_str_short = hist_dt_local.strftime('%b %d, %I:%M:%S %p %Z')
-            except (ValueError, TypeError) as e:
-                print(f"Error formatting history timestamp: {e}")
-                hist_local_str_short = "Invalid Date"
+    rows = []
+    try:
+        tz = pytz.timezone(TARGET_TIMEZONE)
+    except Exception:
+        tz = timezone.utc
 
-        history_rows_html += f"""
-        <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{html.escape(hist_local_str_short)}</td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium {hist_info['history_class']}">
-                {hist_info['emoji']} {html.escape(hist_status)}
-            </td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{html.escape(hist_resp_time_str)}</td>
-            <td class="px-3 py-2 text-sm text-gray-500">{html.escape(hist_extra or '')}</td>
-        </tr>"""
-
-    # --- Prepare Data for Graph and Weekly Averages ---
-    graph_labels = []
-    graph_times = []
-    week_sums = {}
-    week_counts = {}
-    for check in sorted(history, key=lambda c: c.get('timestamp', '')):
-        ts = check.get('timestamp')
-        rt = check.get('response_time', 0)
-        label = ""
+    for url, st in states.items():
+        hist = st.get('history', [])
+        latest = hist[-1] if hist else {}
+        status = latest.get('status', 'UNKNOWN')
+        info = STATUS_INFO.get(status, STATUS_INFO['UNKNOWN'])
+        ts = latest.get('timestamp')
+        local_ts = 'N/A'
         if ts:
             try:
-                dt_local = (
-                    datetime.fromisoformat(ts.replace('Z', '+00:00'))
-                    .replace(tzinfo=timezone.utc)
-                    .astimezone(eastern_tz)
-                )
-                label = dt_local.strftime('%m/%d %H:%M')
-                year, week_num, _ = dt_local.isocalendar()
-                week_key = f"{year}-W{week_num:02d}"
-                if isinstance(rt, (int, float)) and 0 < rt < TIMEOUT_SECONDS:
-                    week_sums.setdefault(week_key, 0.0)
-                    week_counts.setdefault(week_key, 0)
-                    week_sums[week_key] += float(rt)
-                    week_counts[week_key] += 1
-            except Exception as e:
-                print(f"Error preparing graph data: {e}")
-                label = ts
-        graph_labels.append(label)
-        graph_times.append(float(rt) if isinstance(rt, (int, float)) else 0.0)
+                dt = datetime.fromisoformat(ts.replace('Z', '+00:00')).replace(tzinfo=timezone.utc).astimezone(tz)
+                local_ts = dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+            except Exception:
+                pass
+        resp = latest.get('response_time', 0)
+        rows.append(f"<tr><td class='px-3 py-2'>{html.escape(url)}</td><td class='px-3 py-2'>{info['emoji']} {html.escape(status)}</td><td class='px-3 py-2'>{resp:.2f}s</td><td class='px-3 py-2'>{html.escape(local_ts)}</td></tr>")
 
-    weekly_rows_html = ""
-    for wk in sorted(week_sums):
-        count = week_counts.get(wk, 0)
-        if count:
-            avg = week_sums[wk] / count
-            weekly_rows_html += (
-                f"<tr><td class='px-3 py-2 text-sm text-gray-500'>{wk}</td>"
-                f"<td class='px-3 py-2 text-sm text-gray-500'>{avg:.2f} s</td></tr>"
-            )
-
-    # --- Main HTML Structure ---
-    # (HTML structure remains the same as check_status_py_final, only content changes)
+    table_html = "\n".join(rows)
     html_content = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimplePractice Status ✨</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://rsms.me/">
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <style>
-        body {{ font-family: 'Inter', sans-serif; }}
-        @keyframes pulse-bg {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.7; }} }}
-        .animate-pulse-bg {{ animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }}
-        .status-emoji {{ font-size: 1.5rem; line-height: 1; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }}
-        .history-table th, .history-table td {{ padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; }}
-        .history-table th {{ background-color: #f9fafb; text-align: left; font-weight: 500; color: #374151; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }}
-        .history-table tr:last-child td {{ border-bottom: none; }}
-        .text-green-600 {{ color: #16a34a; }} .text-yellow-600 {{ color: #d97706; }} .text-orange-600 {{ color: #ea580c; }} .text-red-600 {{ color: #dc2626; }} .text-gray-500 {{ color: #6b7280; }}
-    </style>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 p-4 md:p-8">
-    <div class="max-w-4xl mx-auto bg-white/80 backdrop-blur-lg rounded-xl shadow-2xl p-6 md:p-10">
-        <header class="mb-6 text-center">
-            <h1 class="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text mb-2">Status Snitch ✨</h1>
-            <p class="text-sm text-gray-700">Keeping an eye on: <code class="bg-white/70 px-1 rounded font-mono">{html.escape(URL)}</code></p>
-        </header>
-
-        <div id="status-card" class="rounded-lg p-6 mb-8 shadow-lg transition transform duration-500 {info['card_bg_class']} {'animate-pulse-bg' if status in ['SLOW', 'ERROR', 'DOWN'] else ''}">
-            <div class="flex items-center justify-between mb-4 flex-wrap">
-                <h2 class="text-xl font-medium flex items-center {info['text_color']} mb-2 sm:mb-0">
-                    <span class="status-emoji">{info['emoji']}</span>
-                    <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">{html.escape(info['text'])}</span>
-                </h2>
-                <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-                    Checked: <span id="last-checked-display">{html.escape(last_check_local_str)}</span>
-                </span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-                    <span id="response-time" class="font-semibold text-lg text-gray-800">{html.escape(response_time_str)}</span>
-                </div>
-                <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    {f'<span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last {valid_avg_count})</span>' if valid_avg_count > 0 else '<span class="text-gray-600 block text-xs mb-1">Avg. Speed</span>'}
-                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(average_speed_str)}</span>
-                </div>
-                <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    <span class="text-gray-600 block text-xs mb-1">Uptime (Last {len(history)})</span>
-                    <span class="font-semibold text-lg text-gray-800">{uptime_percent:.1f}%</span>
-                </div>
-            </div>
-             {f'<div class="text-xs text-center mt-3 {info["text_color"]}"><p>({html.escape(latest_check_data.get("extra_info", ""))})</p></div>' if status in ["ERROR", "DOWN"] and latest_check_data.get("extra_info") else ''}
-        </div>
-
-        <section class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last {len(history)} Checks)</h2>
-            {f'<div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp ({TARGET_TIMEZONE})</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{history_rows_html}</tbody></table></div>' if history else '<p class="text-gray-500">No historical data available yet.</p>'}
-        </section>
-
-        <section class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Response Time Trend</h2>
-            <canvas id="history-chart" class="w-full" height="120"></canvas>
-        </section>
-
-        <section class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Weekly Averages</h2>
-            {f'<div class="overflow-x-auto rounded-lg border border-gray-200"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th>Week</th><th>Avg. Load Time</th></tr></thead><tbody>{weekly_rows_html}</tbody></table></div>' if weekly_rows_html else '<p class="text-gray-500">Not enough data for weekly averages.</p>'}
-        </section>
-
-        <div class="text-center text-xs text-gray-400 mt-8">
-            Status checks run automatically every {CHECK_INTERVAL_MINUTES} minutes via GitHub Actions. Page data reflects the last completed check.
-        </div>
-    </div>
-    <script>
-        const chartLabels = {json.dumps(graph_labels)};
-        const chartTimes = {json.dumps(graph_times)};
-        new Chart(document.getElementById('history-chart'), {{
-            type: 'line',
-            data: {{ labels: chartLabels, datasets: [{{ label: 'Load Time (s)', data: chartTimes, borderColor: 'rgb(34, 197, 94)', tension: 0.1, fill: false }}] }},
-            options: {{ scales: {{ y: {{ beginAtZero: true }} }} , plugins: {{ legend: {{ display: false }} }} }}
-        }});
-    </script>
-</body>
-</html>"""
+<html><head><meta charset='utf-8'><title>Status</title><link rel='stylesheet' href='https://cdn.tailwindcss.com'></head>
+<body class='p-4'>
+<h1 class='text-2xl font-bold mb-4'>Status Snitch</h1>
+<table class='min-w-full divide-y divide-gray-200 border'>
+<thead><tr><th class='px-3 py-2 text-left'>URL</th><th class='px-3 py-2 text-left'>Status</th><th class='px-3 py-2 text-left'>Load Time</th><th class='px-3 py-2 text-left'>Checked</th></tr></thead>
+<tbody>{table_html}</tbody>
+</table>
+</body></html>"""
 
     try:
         with open(filename, 'w', encoding='utf-8') as f:
@@ -312,76 +220,102 @@ def generate_html(filename, state_data):
 
 
 # === MAIN CHECK LOGIC === (No changes needed from previous history version)
-def perform_check():
-    """Performs one status check, updates state including history, and generates output."""
+def perform_checks():
+    """Perform checks for all configured URLs."""
     print("-" * 30)
     check_timestamp_utc = datetime.now(timezone.utc)
     print(f"Starting check at {check_timestamp_utc.isoformat()}")
-    prev_state = load_previous_state(STATE_FILE)
-    recent_times = prev_state.get('recent_response_times', [])
-    if not isinstance(recent_times, list): recent_times = []
-    history = prev_state.get('history', [])
-    if not isinstance(history, list): history = []
-    stable_count = prev_state.get('stable_count', 0)
-    degraded_count = prev_state.get('degraded_count', 0)
-    alert_mode = prev_state.get('alert_mode', False)
-    start_time = time.time()
-    current_status = "UNKNOWN"
-    response_time = 0
-    extra_info = None
-    try:
-        response = requests.get(URL, timeout=TIMEOUT_SECONDS)
-        response_time = time.time() - start_time
-        status_code = response.status_code
-        if status_code == 200:
-            if EXPECTED_KEYWORD and EXPECTED_KEYWORD not in response.text:
-                current_status = "ERROR"; extra_info = "Keyword missing"
+    init_db()
+    states = load_all_states(STATE_FILE)
+
+    for cfg in URLS:
+        url = cfg.get('url')
+        expected = cfg.get('expected_keyword')
+        st = states.get(url, DEFAULT_STATE.copy())
+        history = st.get('history', [])
+        recent_times = st.get('recent_response_times', [])
+        stable_count = st.get('stable_count', 0)
+        degraded_count = st.get('degraded_count', 0)
+        alert_mode = st.get('alert_mode', False)
+
+        start_time = time.time()
+        current_status = 'UNKNOWN'
+        response_time = 0
+        extra_info = None
+        try:
+            resp = requests.get(url, timeout=TIMEOUT_SECONDS)
+            response_time = time.time() - start_time
+            status_code = resp.status_code
+            if status_code == 200:
+                if expected and expected not in resp.text:
+                    current_status = 'ERROR'; extra_info = 'Keyword missing'
+                else:
+                    current_status = 'SLOW' if response_time > SLOW_THRESHOLD else 'UP'
             else:
-                current_status = "SLOW" if response_time > SLOW_THRESHOLD else "UP"
+                current_status = 'ERROR'; extra_info = f'Status code: {status_code}'
+        except requests.exceptions.Timeout:
+            current_status = 'DOWN'; extra_info = 'Request timed out'
+        except requests.exceptions.RequestException as e:
+            current_status = 'DOWN'; extra_info = f'Network error: {type(e).__name__}'
+        except Exception as e:
+            current_status = 'ERROR'; extra_info = f'Unexpected error: {type(e).__name__}'
+
+        print(f"{url} -> {current_status} ({response_time:.2f}s)")
+
+        record = {
+            'timestamp': check_timestamp_utc.isoformat().replace('+00:00', 'Z'),
+            'status': current_status,
+            'response_time': float(f"{response_time:.3f}") if isinstance(response_time, (int, float)) else 0.0,
+            'extra_info': extra_info
+        }
+        history.append(record)
+        history = history[-MAX_HISTORY_RECORDS:]
+        recent_times.append(response_time if current_status in ['UP', 'SLOW'] else 0)
+        recent_times = recent_times[-MAX_RESPONSE_TIMES_TO_KEEP:]
+
+        if current_status == 'UP':
+            stable_count += 1; degraded_count = 0
         else:
-            current_status = "ERROR"; extra_info = f"Status code: {status_code}"
-    except requests.exceptions.Timeout:
-        current_status = "DOWN"; response_time = 0; extra_info = "Request timed out"
-    except requests.exceptions.RequestException as e:
-        current_status = "DOWN"; response_time = 0; extra_info = f"Network error: {type(e).__name__}"
-    except Exception as e:
-        current_status = "ERROR"; response_time = 0; extra_info = f"Unexpected error: {type(e).__name__}"
-        print(f"!!! Unexpected error during check: {e}")
-    print(f"Check result: Status={current_status}, ResponseTime={response_time:.2f}s, Extra='{extra_info}'")
-    current_check_record = {
-        'timestamp': check_timestamp_utc.isoformat().replace('+00:00', 'Z'),
-        'status': current_status,
-        'response_time': float(f"{response_time:.3f}") if isinstance(response_time, (int, float)) else 0.0,
-        'extra_info': str(extra_info) if extra_info is not None else None
-    }
-    history.append(current_check_record)
-    history = history[-MAX_HISTORY_RECORDS:]
-    current_time_for_avg = response_time if current_status in ["UP", "SLOW"] else 0
-    recent_times.append(current_time_for_avg)
-    recent_times = recent_times[-MAX_RESPONSE_TIMES_TO_KEEP:]
-    if current_status == "UP": stable_count += 1; degraded_count = 0
-    else: degraded_count += 1; stable_count = 0
-    new_alert_mode = alert_mode
-    if not alert_mode and degraded_count >= 2: new_alert_mode = True; print("Condition met to enter ALERT mode.")
-    elif alert_mode and stable_count >= 3: new_alert_mode = False; print("Condition met to exit ALERT mode.")
-    current_state_data = {
-        'status': current_status, 'response_time': response_time, 'extra_info': extra_info,
-        'stable_count': stable_count, 'degraded_count': degraded_count, 'alert_mode': new_alert_mode,
-        'last_check_timestamp_utc': current_check_record['timestamp'],
-        'recent_response_times': recent_times, 'history': history
-    }
-    if current_status != prev_state.get('status'):
-        send_slack_notification(f"Status changed to {current_status} ({response_time:.2f}s)")
-    if new_alert_mode and not alert_mode:
-        send_slack_notification("Entering ALERT mode")
-    if alert_mode and not new_alert_mode:
-        send_slack_notification("Alert resolved")
-    save_current_state(STATE_FILE, current_state_data)
-    generate_html(OUTPUT_HTML_FILE, current_state_data)
+            degraded_count += 1; stable_count = 0
+
+        new_alert_mode = alert_mode
+        if not alert_mode and degraded_count >= 2:
+            new_alert_mode = True
+        elif alert_mode and stable_count >= 3:
+            new_alert_mode = False
+
+        if current_status != st.get('status'):
+            msg = f"{url} status changed to {current_status} ({response_time:.2f}s)"
+            send_slack_notification(msg)
+            send_email_notification('Status change', msg)
+        if new_alert_mode and not alert_mode:
+            send_slack_notification(f"{url} entering ALERT mode")
+            send_email_notification('Alert mode', f'{url} entering ALERT mode')
+        if alert_mode and not new_alert_mode:
+            send_slack_notification(f"{url} alert resolved")
+            send_email_notification('Alert resolved', f'{url} alert resolved')
+
+        st.update({
+            'status': current_status,
+            'response_time': response_time,
+            'extra_info': extra_info,
+            'stable_count': stable_count,
+            'degraded_count': degraded_count,
+            'alert_mode': new_alert_mode,
+            'last_check_timestamp_utc': record['timestamp'],
+            'recent_response_times': recent_times,
+            'history': history
+        })
+
+        states[url] = st
+        record_to_db(url, record)
+
+    save_all_states(STATE_FILE, states)
+    generate_html(OUTPUT_HTML_FILE, states)
     print(f"Finished check processing at {datetime.now(timezone.utc).isoformat()}")
     print("-" * 30)
 
 
 # === SCRIPT EXECUTION ===
 if __name__ == "__main__":
-    perform_check()
+    perform_checks()
