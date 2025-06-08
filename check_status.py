@@ -19,6 +19,8 @@ CHECK_INTERVAL_MINUTES = 5
 MAX_RESPONSE_TIMES_TO_KEEP = 3
 MAX_HISTORY_RECORDS = 50
 TARGET_TIMEZONE = 'America/New_York' # Timezone for display
+EXPECTED_KEYWORD = os.getenv('EXPECTED_KEYWORD')
+SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL')
 
 # === STATUS INFO (for display) ===
 STATUS_INFO = {
@@ -82,6 +84,17 @@ def calculate_average_speed(times_list):
     if not valid_times: return 0, 0
     return sum(valid_times) / len(valid_times), len(valid_times)
 
+def send_slack_notification(message):
+    """Send a message to Slack if webhook URL configured."""
+    if not SLACK_WEBHOOK_URL or not message:
+        return
+    try:
+        resp = requests.post(SLACK_WEBHOOK_URL, json={"text": message}, timeout=5)
+        if resp.status_code != 200:
+            print(f"Slack notification failed: {resp.status_code}")
+    except Exception as e:
+        print(f"Slack notification error: {e}")
+
 def generate_html(filename, state_data):
     """Generates the index.html file with current status and history table."""
 
@@ -99,6 +112,11 @@ def generate_html(filename, state_data):
     info = STATUS_INFO.get(status, STATUS_INFO["UNKNOWN"])
     response_time = latest_check_data.get('response_time', 0)
     response_time_str = f"{response_time:.2f} s" if status != 'UNKNOWN' and isinstance(response_time, (int, float)) and response_time >= 0 else "-- s"
+
+    uptime_percent = 0.0
+    if history:
+        up_count = sum(1 for h in history if h.get('status') in ['UP', 'SLOW'])
+        uptime_percent = (up_count / len(history)) * 100
 
     # --- Calculate Average Speed ---
     recent_times = state_data.get('recent_response_times', [])
@@ -237,7 +255,7 @@ def generate_html(filename, state_data):
                     Checked: <span id="last-checked-display">{html.escape(last_check_local_str)}</span>
                 </span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
                     <span id="response-time" class="font-semibold text-lg text-gray-800">{html.escape(response_time_str)}</span>
@@ -245,6 +263,10 @@ def generate_html(filename, state_data):
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     {f'<span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last {valid_avg_count})</span>' if valid_avg_count > 0 else '<span class="text-gray-600 block text-xs mb-1">Avg. Speed</span>'}
                     <span id="avg-speed" class="font-semibold text-lg text-gray-800">{html.escape(average_speed_str)}</span>
+                </div>
+                <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
+                    <span class="text-gray-600 block text-xs mb-1">Uptime (Last {len(history)})</span>
+                    <span class="font-semibold text-lg text-gray-800">{uptime_percent:.1f}%</span>
                 </div>
             </div>
              {f'<div class="text-xs text-center mt-3 {info["text_color"]}"><p>({html.escape(latest_check_data.get("extra_info", ""))})</p></div>' if status in ["ERROR", "DOWN"] and latest_check_data.get("extra_info") else ''}
@@ -312,7 +334,10 @@ def perform_check():
         response_time = time.time() - start_time
         status_code = response.status_code
         if status_code == 200:
-            current_status = "SLOW" if response_time > SLOW_THRESHOLD else "UP"
+            if EXPECTED_KEYWORD and EXPECTED_KEYWORD not in response.text:
+                current_status = "ERROR"; extra_info = "Keyword missing"
+            else:
+                current_status = "SLOW" if response_time > SLOW_THRESHOLD else "UP"
         else:
             current_status = "ERROR"; extra_info = f"Status code: {status_code}"
     except requests.exceptions.Timeout:
@@ -345,6 +370,12 @@ def perform_check():
         'last_check_timestamp_utc': current_check_record['timestamp'],
         'recent_response_times': recent_times, 'history': history
     }
+    if current_status != prev_state.get('status'):
+        send_slack_notification(f"Status changed to {current_status} ({response_time:.2f}s)")
+    if new_alert_mode and not alert_mode:
+        send_slack_notification("Entering ALERT mode")
+    if alert_mode and not new_alert_mode:
+        send_slack_notification("Alert resolved")
     save_current_state(STATE_FILE, current_state_data)
     generate_html(OUTPUT_HTML_FILE, current_state_data)
     print(f"Finished check processing at {datetime.now(timezone.utc).isoformat()}")
