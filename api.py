@@ -1,17 +1,12 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify
 import json
 import os
 
 STATE_FILE = os.environ.get('STATE_FILE', 'status.json')
-API_TOKEN = os.environ.get('API_TOKEN')
 app = Flask(__name__)
 
 @app.route('/status')
 def status():
-    if API_TOKEN:
-        token = request.headers.get('Authorization', '').replace('Bearer ', '') or request.args.get('token')
-        if token != API_TOKEN:
-            abort(401)
     try:
         with open(STATE_FILE, 'r') as f:
             data = json.load(f)

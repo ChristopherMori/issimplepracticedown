@@ -1,6 +1,6 @@
 # Status Snitch
 
-A status checker that can watch multiple websites, records response times, sends alerts, and generates a simple dashboard. It supports Slack and optional email alerts, stores history in a SQLite database, exposes an authenticated API and can be run via Docker.
+A simple status checker that monitors a website, records response times, and generates a web dashboard. Additional features include optional Slack notifications, a lightweight Flask API to expose historical data, and a Dockerfile for easy deployment.
 
 ## Usage
 
@@ -8,13 +8,14 @@ A status checker that can watch multiple websites, records response times, sends
 ```bash
 python check_status.py
 ```
-Configuration is read from `config.yaml` by default. Environment variables can override settings such as `SLACK_WEBHOOK_URL` or `API_TOKEN`.
+
+Set `EXPECTED_KEYWORD` to ensure the page contains specific text. To receive Slack alerts, provide `SLACK_WEBHOOK_URL`.
 
 ### API Server
 ```bash
 python api.py
 ```
-The API exposes `/status` returning the contents of `status.json`. If `API_TOKEN` is set you must provide the token via an `Authorization` header or `token` query parameter.
+The API exposes `/status` returning the contents of `status.json`.
 
 ### Docker
 Build and run the checker using Docker:
