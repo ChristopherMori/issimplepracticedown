@@ -1,23 +1,17 @@
 {
   "status": "UP",
-  "response_time": 0.34351682662963867,
+  "response_time": 0.2415623664855957,
   "extra_info": null,
-  "stable_count": 3085,
+  "stable_count": 3086,
   "degraded_count": 0,
   "alert_mode": false,
-  "last_check_timestamp_utc": "2025-06-30T11:57:44.351799Z",
+  "last_check_timestamp_utc": "2025-06-30T12:52:04.601077Z",
   "recent_response_times": [
-    0.294506311416626,
     0.35080695152282715,
-    0.34351682662963867
+    0.34351682662963867,
+    0.2415623664855957
   ],
   "history": [
-    {
-      "timestamp": "2025-06-29T17:55:48.171044Z",
-      "status": "UP",
-      "response_time": 0.231,
-      "extra_info": null
-    },
     {
       "timestamp": "2025-06-29T18:25:58.226932Z",
       "status": "UP",
@@ -310,6 +304,12 @@
       "timestamp": "2025-06-30T11:57:44.351799Z",
       "status": "UP",
       "response_time": 0.344,
+      "extra_info": null
+    },
+    {
+      "timestamp": "2025-06-30T12:52:04.601077Z",
+      "status": "UP",
+      "response_time": 0.242,
       "extra_info": null
     }
   ]
