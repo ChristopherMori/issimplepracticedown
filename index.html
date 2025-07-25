@@ -33,13 +33,13 @@
                     <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">All Good!</span>
                 </h2>
                 <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-                    Checked: <span id="last-checked-display">Jul 25, 2025, 07:59:16 AM EDT</span>
+                    Checked: <span id="last-checked-display">Jul 25, 2025, 08:58:55 AM EDT</span>
                 </span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.17 s</span>
+                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.24 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 3)</span>
@@ -56,6 +56,14 @@
         <section class="mb-6">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last 50 Checks)</h2>
             <div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (America/New_York)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">
+        <tr>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Jul 25, 08:58:55 AM EDT</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
+                ✅ UP
+            </td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.24 s</td>
+            <td class="px-3 py-2 text-sm text-gray-500"></td>
+        </tr>
         <tr>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Jul 25, 07:59:16 AM EDT</td>
             <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
@@ -447,14 +455,6 @@
             </td>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.28 s</td>
             <td class="px-3 py-2 text-sm text-gray-500"></td>
-        </tr>
-        <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Jul 24, 11:53:29 AM EDT</td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
-                ✅ UP
-            </td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.25 s</td>
-            <td class="px-3 py-2 text-sm text-gray-500"></td>
         </tr></tbody></table></div>
         </section>
 
@@ -473,8 +473,8 @@
         </div>
     </div>
     <script>
-        const chartLabels = ["07/24 11:53", "07/24 12:17", "07/24 12:45", "07/24 13:01", "07/24 13:30", "07/24 13:48", "07/24 13:58", "07/24 14:39", "07/24 14:58", "07/24 15:23", "07/24 15:37", "07/24 15:48", "07/24 15:57", "07/24 16:27", "07/24 16:45", "07/24 16:56", "07/24 17:23", "07/24 17:38", "07/24 17:48", "07/24 17:58", "07/24 18:27", "07/24 18:47", "07/24 18:57", "07/24 19:25", "07/24 19:41", "07/24 19:52", "07/24 20:59", "07/24 23:01", "07/25 00:03", "07/25 00:48", "07/25 01:16", "07/25 01:47", "07/25 01:59", "07/25 02:43", "07/25 03:01", "07/25 03:30", "07/25 03:45", "07/25 03:55", "07/25 04:28", "07/25 04:53", "07/25 05:18", "07/25 05:42", "07/25 05:56", "07/25 06:24", "07/25 06:48", "07/25 06:58", "07/25 07:24", "07/25 07:39", "07/25 07:49", "07/25 07:59"];
-        const chartTimes = [0.253, 0.275, 0.374, 0.345, 0.376, 0.425, 0.504, 0.318, 0.136, 0.311, 0.221, 0.288, 0.26, 0.343, 0.23, 0.407, 0.381, 0.15, 0.251, 0.267, 0.337, 0.233, 0.296, 0.326, 0.332, 0.176, 0.35, 0.282, 0.248, 0.367, 0.263, 0.203, 0.326, 0.354, 0.15, 0.33, 0.262, 0.443, 0.304, 0.288, 0.383, 0.37, 0.29, 0.104, 0.242, 0.3, 0.208, 0.238, 0.394, 0.172];
+        const chartLabels = ["07/24 12:17", "07/24 12:45", "07/24 13:01", "07/24 13:30", "07/24 13:48", "07/24 13:58", "07/24 14:39", "07/24 14:58", "07/24 15:23", "07/24 15:37", "07/24 15:48", "07/24 15:57", "07/24 16:27", "07/24 16:45", "07/24 16:56", "07/24 17:23", "07/24 17:38", "07/24 17:48", "07/24 17:58", "07/24 18:27", "07/24 18:47", "07/24 18:57", "07/24 19:25", "07/24 19:41", "07/24 19:52", "07/24 20:59", "07/24 23:01", "07/25 00:03", "07/25 00:48", "07/25 01:16", "07/25 01:47", "07/25 01:59", "07/25 02:43", "07/25 03:01", "07/25 03:30", "07/25 03:45", "07/25 03:55", "07/25 04:28", "07/25 04:53", "07/25 05:18", "07/25 05:42", "07/25 05:56", "07/25 06:24", "07/25 06:48", "07/25 06:58", "07/25 07:24", "07/25 07:39", "07/25 07:49", "07/25 07:59", "07/25 08:58"];
+        const chartTimes = [0.275, 0.374, 0.345, 0.376, 0.425, 0.504, 0.318, 0.136, 0.311, 0.221, 0.288, 0.26, 0.343, 0.23, 0.407, 0.381, 0.15, 0.251, 0.267, 0.337, 0.233, 0.296, 0.326, 0.332, 0.176, 0.35, 0.282, 0.248, 0.367, 0.263, 0.203, 0.326, 0.354, 0.15, 0.33, 0.262, 0.443, 0.304, 0.288, 0.383, 0.37, 0.29, 0.104, 0.242, 0.3, 0.208, 0.238, 0.394, 0.172, 0.24];
         new Chart(document.getElementById('history-chart'), {
             type: 'line',
             data: { labels: chartLabels, datasets: [{ label: 'Load Time (s)', data: chartTimes, borderColor: 'rgb(34, 197, 94)', tension: 0.1, fill: false }] },
