@@ -33,17 +33,17 @@
                     <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">All Good!</span>
                 </h2>
                 <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-                    Checked: <span id="last-checked-display">Nov 19, 2025, 10:14:01 AM EST</span>
+                    Checked: <span id="last-checked-display">Nov 19, 2025, 10:28:15 AM EST</span>
                 </span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.14 s</span>
+                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.12 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 3)</span>
-                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.21 s</span>
+                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.13 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Uptime (Last 50)</span>
@@ -56,6 +56,14 @@
         <section class="mb-6">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last 50 Checks)</h2>
             <div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (America/New_York)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">
+        <tr>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Nov 19, 10:28:15 AM EST</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
+                ✅ UP
+            </td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.12 s</td>
+            <td class="px-3 py-2 text-sm text-gray-500"></td>
+        </tr>
         <tr>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Nov 19, 10:14:01 AM EST</td>
             <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
@@ -447,14 +455,6 @@
             </td>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.33 s</td>
             <td class="px-3 py-2 text-sm text-gray-500"></td>
-        </tr>
-        <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Nov 19, 12:51:57 AM EST</td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
-                ✅ UP
-            </td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.35 s</td>
-            <td class="px-3 py-2 text-sm text-gray-500"></td>
         </tr></tbody></table></div>
         </section>
 
@@ -465,7 +465,7 @@
 
         <section class="mb-6">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Weekly Averages</h2>
-            <div class="overflow-x-auto rounded-lg border border-gray-200"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th>Week</th><th>Avg. Load Time</th></tr></thead><tbody><tr><td class='px-3 py-2 text-sm text-gray-500'>2025-W47</td><td class='px-3 py-2 text-sm text-gray-500'>0.28 s</td></tr></tbody></table></div>
+            <div class="overflow-x-auto rounded-lg border border-gray-200"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th>Week</th><th>Avg. Load Time</th></tr></thead><tbody><tr><td class='px-3 py-2 text-sm text-gray-500'>2025-W47</td><td class='px-3 py-2 text-sm text-gray-500'>0.27 s</td></tr></tbody></table></div>
         </section>
 
         <div class="text-center text-xs text-gray-400 mt-8">
@@ -473,8 +473,8 @@
         </div>
     </div>
     <script>
-        const chartLabels = ["11/19 00:51", "11/19 00:59", "11/19 01:13", "11/19 01:28", "11/19 01:44", "11/19 01:54", "11/19 02:04", "11/19 02:16", "11/19 02:28", "11/19 02:37", "11/19 02:45", "11/19 02:53", "11/19 03:01", "11/19 03:12", "11/19 03:27", "11/19 03:42", "11/19 03:53", "11/19 04:01", "11/19 04:12", "11/19 04:26", "11/19 04:38", "11/19 04:47", "11/19 04:54", "11/19 05:04", "11/19 05:16", "11/19 05:31", "11/19 05:43", "11/19 05:51", "11/19 05:59", "11/19 06:09", "11/19 06:21", "11/19 06:31", "11/19 06:39", "11/19 06:47", "11/19 06:54", "11/19 07:06", "11/19 07:21", "11/19 07:40", "11/19 08:01", "11/19 08:19", "11/19 08:36", "11/19 08:48", "11/19 08:56", "11/19 09:07", "11/19 09:20", "11/19 09:34", "11/19 09:44", "11/19 09:53", "11/19 10:02", "11/19 10:14"];
-        const chartTimes = [0.352, 0.326, 0.152, 0.234, 0.351, 0.292, 0.418, 0.329, 0.391, 0.15, 0.328, 0.309, 0.153, 0.331, 0.147, 0.367, 0.312, 0.249, 0.232, 0.297, 0.148, 0.326, 0.339, 0.245, 0.459, 0.316, 0.375, 0.319, 0.433, 0.315, 0.14, 0.188, 0.338, 0.218, 0.145, 0.34, 0.18, 0.324, 0.161, 0.266, 0.303, 0.336, 0.307, 0.196, 0.238, 0.252, 0.263, 0.355, 0.143, 0.135];
+        const chartLabels = ["11/19 00:59", "11/19 01:13", "11/19 01:28", "11/19 01:44", "11/19 01:54", "11/19 02:04", "11/19 02:16", "11/19 02:28", "11/19 02:37", "11/19 02:45", "11/19 02:53", "11/19 03:01", "11/19 03:12", "11/19 03:27", "11/19 03:42", "11/19 03:53", "11/19 04:01", "11/19 04:12", "11/19 04:26", "11/19 04:38", "11/19 04:47", "11/19 04:54", "11/19 05:04", "11/19 05:16", "11/19 05:31", "11/19 05:43", "11/19 05:51", "11/19 05:59", "11/19 06:09", "11/19 06:21", "11/19 06:31", "11/19 06:39", "11/19 06:47", "11/19 06:54", "11/19 07:06", "11/19 07:21", "11/19 07:40", "11/19 08:01", "11/19 08:19", "11/19 08:36", "11/19 08:48", "11/19 08:56", "11/19 09:07", "11/19 09:20", "11/19 09:34", "11/19 09:44", "11/19 09:53", "11/19 10:02", "11/19 10:14", "11/19 10:28"];
+        const chartTimes = [0.326, 0.152, 0.234, 0.351, 0.292, 0.418, 0.329, 0.391, 0.15, 0.328, 0.309, 0.153, 0.331, 0.147, 0.367, 0.312, 0.249, 0.232, 0.297, 0.148, 0.326, 0.339, 0.245, 0.459, 0.316, 0.375, 0.319, 0.433, 0.315, 0.14, 0.188, 0.338, 0.218, 0.145, 0.34, 0.18, 0.324, 0.161, 0.266, 0.303, 0.336, 0.307, 0.196, 0.238, 0.252, 0.263, 0.355, 0.143, 0.135, 0.118];
         new Chart(document.getElementById('history-chart'), {
             type: 'line',
             data: { labels: chartLabels, datasets: [{ label: 'Load Time (s)', data: chartTimes, borderColor: 'rgb(34, 197, 94)', tension: 0.1, fill: false }] },
