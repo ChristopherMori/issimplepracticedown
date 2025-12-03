@@ -26,36 +26,44 @@
             <p class="text-sm text-gray-700">Keeping an eye on: <code class="bg-white/70 px-1 rounded font-mono">https://account.simplepractice.com/</code></p>
         </header>
 
-        <div id="status-card" class="rounded-lg p-6 mb-8 shadow-lg transition transform duration-500 bg-green-100 ">
+        <div id="status-card" class="rounded-lg p-6 mb-8 shadow-lg transition transform duration-500 bg-orange-100 animate-pulse-bg">
             <div class="flex items-center justify-between mb-4 flex-wrap">
-                <h2 class="text-xl font-medium flex items-center text-green-700 mb-2 sm:mb-0">
-                    <span class="status-emoji">✅</span>
-                    <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">All Good!</span>
+                <h2 class="text-xl font-medium flex items-center text-orange-700 mb-2 sm:mb-0">
+                    <span class="status-emoji">⚠️</span>
+                    <span>Current Status:</span> <span id="status-text" class="ml-2 font-semibold">Uh Oh! Error!</span>
                 </h2>
                 <span class="text-xs text-gray-500 w-full text-right sm:w-auto">
-                    Checked: <span id="last-checked-display">Dec 02, 2025, 08:45:58 PM EST</span>
+                    Checked: <span id="last-checked-display">Dec 02, 2025, 09:25:55 PM EST</span>
                 </span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Load Speed (Last)</span>
-                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.37 s</span>
+                    <span id="response-time" class="font-semibold text-lg text-gray-800">0.30 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
-                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 3)</span>
-                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.26 s</span>
+                    <span class="text-gray-600 block text-xs mb-1">Avg. Speed (Last 2)</span>
+                    <span id="avg-speed" class="font-semibold text-lg text-gray-800">0.31 s</span>
                 </div>
                 <div class="bg-white/60 rounded-lg p-3 text-center shadow-sm">
                     <span class="text-gray-600 block text-xs mb-1">Uptime (Last 50)</span>
-                    <span class="font-semibold text-lg text-gray-800">100.0%</span>
+                    <span class="font-semibold text-lg text-gray-800">98.0%</span>
                 </div>
             </div>
-             
+             <div class="text-xs text-center mt-3 text-orange-700"><p>(Status code: 403)</p></div>
         </div>
 
         <section class="mb-6">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Recent History (Last 50 Checks)</h2>
             <div class="overflow-x-auto rounded-lg border border-gray-200 max-h-96 overflow-y-auto"><table class="min-w-full divide-y divide-gray-200 history-table"><thead><tr><th class="whitespace-nowrap">Timestamp (America/New_York)</th><th class="whitespace-nowrap">Status</th><th class="whitespace-nowrap">Load Time</th><th class="whitespace-nowrap">Details</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">
+        <tr>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Dec 02, 09:25:55 PM EST</td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-orange-600">
+                ⚠️ ERROR
+            </td>
+            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.30 s</td>
+            <td class="px-3 py-2 text-sm text-gray-500">Status code: 403</td>
+        </tr>
         <tr>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Dec 02, 08:45:58 PM EST</td>
             <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
@@ -447,14 +455,6 @@
             </td>
             <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.12 s</td>
             <td class="px-3 py-2 text-sm text-gray-500"></td>
-        </tr>
-        <tr>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">Dec 02, 10:37:03 AM EST</td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm font-medium text-green-600">
-                ✅ UP
-            </td>
-            <td class="whitespace-nowrap px-3 py-2 text-sm text-gray-500">0.32 s</td>
-            <td class="px-3 py-2 text-sm text-gray-500"></td>
         </tr></tbody></table></div>
         </section>
 
@@ -473,8 +473,8 @@
         </div>
     </div>
     <script>
-        const chartLabels = ["12/02 10:37", "12/02 10:48", "12/02 10:56", "12/02 11:10", "12/02 11:25", "12/02 11:43", "12/02 11:56", "12/02 12:08", "12/02 12:21", "12/02 12:35", "12/02 12:46", "12/02 12:55", "12/02 13:07", "12/02 13:21", "12/02 13:40", "12/02 13:54", "12/02 14:05", "12/02 14:17", "12/02 14:28", "12/02 14:37", "12/02 14:45", "12/02 14:52", "12/02 15:00", "12/02 15:12", "12/02 15:26", "12/02 15:39", "12/02 15:49", "12/02 15:56", "12/02 16:08", "12/02 16:20", "12/02 16:30", "12/02 16:39", "12/02 16:46", "12/02 16:54", "12/02 17:03", "12/02 17:14", "12/02 17:27", "12/02 17:37", "12/02 17:45", "12/02 17:53", "12/02 18:01", "12/02 18:12", "12/02 18:25", "12/02 18:34", "12/02 18:42", "12/02 18:50", "12/02 18:57", "12/02 19:36", "12/02 20:05", "12/02 20:45"];
-        const chartTimes = [0.321, 0.125, 0.42, 0.229, 0.366, 0.353, 0.214, 0.129, 0.316, 0.275, 0.222, 0.316, 0.366, 0.332, 0.394, 0.221, 0.268, 0.261, 0.185, 3.291, 0.133, 0.234, 0.371, 0.201, 0.21, 0.297, 0.405, 0.225, 0.343, 0.365, 0.136, 0.248, 0.382, 0.399, 0.355, 0.217, 0.162, 0.126, 0.302, 0.293, 0.313, 0.256, 0.322, 0.313, 0.327, 0.4, 0.129, 0.156, 0.241, 0.374];
+        const chartLabels = ["12/02 10:48", "12/02 10:56", "12/02 11:10", "12/02 11:25", "12/02 11:43", "12/02 11:56", "12/02 12:08", "12/02 12:21", "12/02 12:35", "12/02 12:46", "12/02 12:55", "12/02 13:07", "12/02 13:21", "12/02 13:40", "12/02 13:54", "12/02 14:05", "12/02 14:17", "12/02 14:28", "12/02 14:37", "12/02 14:45", "12/02 14:52", "12/02 15:00", "12/02 15:12", "12/02 15:26", "12/02 15:39", "12/02 15:49", "12/02 15:56", "12/02 16:08", "12/02 16:20", "12/02 16:30", "12/02 16:39", "12/02 16:46", "12/02 16:54", "12/02 17:03", "12/02 17:14", "12/02 17:27", "12/02 17:37", "12/02 17:45", "12/02 17:53", "12/02 18:01", "12/02 18:12", "12/02 18:25", "12/02 18:34", "12/02 18:42", "12/02 18:50", "12/02 18:57", "12/02 19:36", "12/02 20:05", "12/02 20:45", "12/02 21:25"];
+        const chartTimes = [0.125, 0.42, 0.229, 0.366, 0.353, 0.214, 0.129, 0.316, 0.275, 0.222, 0.316, 0.366, 0.332, 0.394, 0.221, 0.268, 0.261, 0.185, 3.291, 0.133, 0.234, 0.371, 0.201, 0.21, 0.297, 0.405, 0.225, 0.343, 0.365, 0.136, 0.248, 0.382, 0.399, 0.355, 0.217, 0.162, 0.126, 0.302, 0.293, 0.313, 0.256, 0.322, 0.313, 0.327, 0.4, 0.129, 0.156, 0.241, 0.374, 0.305];
         new Chart(document.getElementById('history-chart'), {
             type: 'line',
             data: { labels: chartLabels, datasets: [{ label: 'Load Time (s)', data: chartTimes, borderColor: 'rgb(34, 197, 94)', tension: 0.1, fill: false }] },
