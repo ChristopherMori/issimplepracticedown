@@ -1,23 +1,17 @@
 {
-  "status": "UP",
-  "response_time": 0.34522533416748047,
-  "extra_info": null,
-  "stable_count": 1,
-  "degraded_count": 0,
+  "status": "ERROR",
+  "response_time": 0.49763011932373047,
+  "extra_info": "Status code: 403",
+  "stable_count": 0,
+  "degraded_count": 1,
   "alert_mode": true,
-  "last_check_timestamp_utc": "2026-06-04T07:18:56.025322Z",
+  "last_check_timestamp_utc": "2026-06-04T08:40:33.733588Z",
   "recent_response_times": [
     0,
-    0,
-    0.34522533416748047
+    0.34522533416748047,
+    0
   ],
   "history": [
-    {
-      "timestamp": "2026-06-01T16:28:10.313156Z",
-      "status": "UP",
-      "response_time": 0.283,
-      "extra_info": null
-    },
     {
       "timestamp": "2026-06-01T18:27:41.962355Z",
       "status": "UP",
@@ -311,6 +305,12 @@
       "status": "UP",
       "response_time": 0.345,
       "extra_info": null
+    },
+    {
+      "timestamp": "2026-06-04T08:40:33.733588Z",
+      "status": "ERROR",
+      "response_time": 0.498,
+      "extra_info": "Status code: 403"
     }
   ]
 }
